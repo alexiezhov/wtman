@@ -7,25 +7,25 @@ import (
 )
 
 type ColorsConfig struct {
-	Primary      string `json:"primary,omitempty"`
-	Green        string `json:"green,omitempty"`
-	Dimmed       string `json:"dimmed,omitempty"`
-	Highlight    string `json:"highlight,omitempty"`
-	Cyan         string `json:"cyan,omitempty"`
-	Red          string `json:"red,omitempty"`
-	Separator    string `json:"separator,omitempty"`
-	SelectedFg   string `json:"selected_fg,omitempty"`
+	Title      string `json:"title,omitempty"`
+	Success    string `json:"success,omitempty"`
+	Muted      string `json:"muted,omitempty"`
+	SelectedBg string `json:"selected_bg,omitempty"`
+	Accent     string `json:"accent,omitempty"`
+	Error      string `json:"error,omitempty"`
+	Separator  string `json:"separator,omitempty"`
+	SelectedFg string `json:"selected_fg,omitempty"`
 }
 
 func DefaultColors() ColorsConfig {
 	return ColorsConfig{
-		Primary:    "63",
-		Green:      "42",
-		Dimmed:     "241",
-		Highlight:  "236",
-		Cyan:       "86",
-		Red:        "196",
-		Separator:  "238",
+		Title:      "99",
+		Success:    "48",
+		Muted:      "245",
+		SelectedBg: "237",
+		Accent:     "87",
+		Error:      "203",
+		Separator:  "240",
 		SelectedFg: "255",
 	}
 }
@@ -93,23 +93,23 @@ func SaveConfig(path string, cfg Config) error {
 }
 
 func mergeColors(user, defaults ColorsConfig) ColorsConfig {
-	if user.Primary == "" {
-		user.Primary = defaults.Primary
+	if user.Title == "" {
+		user.Title = defaults.Title
 	}
-	if user.Green == "" {
-		user.Green = defaults.Green
+	if user.Success == "" {
+		user.Success = defaults.Success
 	}
-	if user.Dimmed == "" {
-		user.Dimmed = defaults.Dimmed
+	if user.Muted == "" {
+		user.Muted = defaults.Muted
 	}
-	if user.Highlight == "" {
-		user.Highlight = defaults.Highlight
+	if user.SelectedBg == "" {
+		user.SelectedBg = defaults.SelectedBg
 	}
-	if user.Cyan == "" {
-		user.Cyan = defaults.Cyan
+	if user.Accent == "" {
+		user.Accent = defaults.Accent
 	}
-	if user.Red == "" {
-		user.Red = defaults.Red
+	if user.Error == "" {
+		user.Error = defaults.Error
 	}
 	if user.Separator == "" {
 		user.Separator = defaults.Separator

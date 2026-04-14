@@ -280,11 +280,11 @@ func (m AppModel) handleCommand(cmd CommandMsg) (tea.Model, tea.Cmd) {
 		return m.enterRenameMode()
 	case "/source-dir":
 		m.mode = modeSourceDirPrompt
-		m.prompt = m.prompt.ActivateText("Source dir:")
+		m.prompt = m.prompt.ActivateText(fmt.Sprintf("Source dir (%s):", m.cfg.SourceDir))
 		return m, nil
 	case "/target-dir":
 		m.mode = modeTargetDirPrompt
-		m.prompt = m.prompt.ActivateText("Target dir:")
+		m.prompt = m.prompt.ActivateText(fmt.Sprintf("Target dir (%s):", m.cfg.TargetDir))
 		return m, nil
 	case "/sort-by-name":
 		m.branchList = m.branchList.SetSortMode(SortByName)

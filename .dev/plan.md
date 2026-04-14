@@ -22,7 +22,7 @@ graph TD
         App["app.go -- orchestrator: layout, focus, routing"]
         BranchList["branchlist.go -- emits BranchSelectedMsg"]
         RepoSelect["reposelect.go -- emits ReposSelectedMsg, fuzzy filter"]
-        StatusBar["statusbar.go -- emits CommandMsg, Tab/arrow autocomplete"]
+        StatusBar["statusbar.go -- emits CommandMsg, fuzzy autocomplete"]
         Prompt["prompt.go -- emits PromptResultMsg"]
         Spinner["spinner -- shown during operations"]
         Styles["styles.go -- ApplyColors from config"]
@@ -81,7 +81,7 @@ wtman/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions
     branchlist.go      -- feature branch list: date | name | repos header, up/down, Enter for update
     reposelect.go      -- repo multi-select: up/down, Space toggle, fuzzy filter, ESC cancel/clear
-    statusbar.go       -- / to enter command mode, Tab/Up/Down autocomplete cycling, ESC/Enter
+    statusbar.go       -- / to enter command mode, fuzzy autocomplete, Tab/Up/Down cycling, ESC/Enter
     prompt.go          -- single-line text input (branch name, rename, confirmations)
     styles.go          -- ApplyColors(ColorsConfig), lipgloss style variables
     messages.go        -- shared message types (outcome messages, watcher events, operation results)
@@ -98,22 +98,30 @@ File: `~/.config/wtman/config.json`
   "post_command": "tmux split-window -h 'cd {{dir}} && cursor --agent'",
   "scan_depth": 1,
   "colors": {
-    "primary": "63",
-    "green": "42",
-    "dimmed": "241",
-    "highlight": "236",
-    "cyan": "86",
-    "red": "196",
-    "separator": "238",
+    "title": "99",
+    "success": "48",
+    "muted": "245",
+    "selected_bg": "237",
+    "accent": "87",
+    "error": "203",
+    "separator": "240",
     "selected_fg": "255"
   }
 }
 ```
 
-- `source_dir` / `target_dir` -- overridable at runtime via `/source-dir` and `/target-dir` commands (persisted to config)
+- `source_dir` / `target_dir` -- overridable at runtime via `/source-dir` and `/target-dir` commands (persisted to config); prompt shows current value
 - `post_command` -- shell command run after worktrees are created; `{{dir}}` is replaced with the feature branch directory path
 - `scan_depth` -- how deep to look for git repos in source dir
-- `colors` -- ANSI 256-color codes for all UI elements; omitted fields fall back to defaults
+- `colors` -- ANSI 256-color codes for all UI elements; omitted fields fall back to defaults. Field names are functional:
+  - `title` -- title bar, spinner
+  - `success` -- [x] checkmarks
+  - `muted` -- hints, headers, unchecked boxes, autocomplete
+  - `selected_bg` -- selected row background
+  - `accent` -- filter text, cursor, active autocomplete item
+  - `error` -- error messages
+  - `separator` -- table separator lines
+  - `selected_fg` -- selected row foreground
 
 ## Branch Name Encoding
 
@@ -140,7 +148,7 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 - `/` opens command bar
 - `q` quits
 - Ctrl+C / Ctrl+D quits from any mode
-- Commands: `/new`, `/delete`, `/rename`, `/source-dir`, `/target-dir`, `/sort-by-name`, `/sort-by-date`
+- Commands: `/new`, `/delete`, `/rename`, `/source-dir` (shows current), `/target-dir` (shows current), `/sort-by-name`, `/sort-by-date`
 - Table has a header row (Date | Branch | Repos) with a separator line
 - Repos column shows sorted repo names, truncated with `...` if they exceed available width
 - List auto-refreshes when watcher detects changes in target dir
@@ -160,10 +168,10 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
    /new         /rename        /delete
 ```
 
-- Autocomplete row below input shows matching commands (dimmed), non-matching disappear
+- Autocomplete row below input shows fuzzy-matching commands (dimmed), non-matching disappear. Fuzzy logic is same as repo filter: exact substrings rank highest, then prefix/boundary/consecutive matches. Input is matched against command names without the `/` prefix.
 - Tab / Down cycles forward through matches, Shift+Tab / Up cycles backward
-- Selected autocomplete suggestion shown in cyan bold
-- Enter executes the typed or selected command
+- Selected autocomplete suggestion shown in accent color bold
+- Enter executes the typed or selected command; single remaining match auto-completes
 - ESC cancels command input
 
 ### Mode 2: Repo Select (via `/new` or Enter on existing branch)
@@ -268,8 +276,10 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
 2. For each repo: `git worktree add targetDir/<encoded-branch>/repoName branch`
    - If branch exists locally or on origin, check it out
    - If branch doesn't exist, create from main/master
-3. Create Cursor workspace file (see CreateCursorWorkspace below)
+   - **Per-repo errors are collected, not fatal** -- all repos are attempted even if some fail. Error message lists all failures.
+3. Create Cursor workspace file from repos actually on disk (not the requested list, handles partial failures)
 4. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/`
+5. Post-command and workspace file run regardless of partial failures
 
 ### CreateCursorWorkspace(branchDir string, repoNames []string) error
 
@@ -310,8 +320,8 @@ Creates a `.code-workspace` file in the branch directory so the user can open al
 1. Discover current worktrees under `targetDir/<encoded-branch>/`
 2. Compute diff: repos to add, repos to remove
 3. For removals: `git worktree remove`, `git worktree prune`, `git branch -d`
-4. For additions: same as CreateWorktrees per-repo logic
-5. Regenerate Cursor workspace file to reflect updated repo set
+4. For additions: same as CreateWorktrees per-repo logic (per-repo errors collected, not fatal)
+5. Regenerate Cursor workspace file from repos actually on disk
 
 ### DirWatcher
 

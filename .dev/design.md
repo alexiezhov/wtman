@@ -60,7 +60,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Autocomplete suggestions shown dimmed below the input. Non-matching commands disappear as you type.
+Autocomplete uses fuzzy matching (same algorithm as repo filter). Suggestions shown dimmed below the input; non-matching commands disappear as you type. Ranked by match quality.
 
 ### 3. Repo Select (via /new)
 
@@ -84,7 +84,7 @@ Autocomplete suggestions shown dimmed below the input. Non-matching commands dis
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-`[x]` rendered in green. Selected count shown next to ENTER confirm.
+`[x]` rendered in success color. Selected count shown next to ENTER confirm.
 
 ### 4. Repo Select with Filter
 

@@ -6,12 +6,12 @@ import (
 )
 
 var (
-	colorPrimary   lipgloss.Color
-	colorGreen     lipgloss.Color
-	colorDimmed    lipgloss.Color
-	colorHighlight lipgloss.Color
-	colorCyan      lipgloss.Color
-	colorRed       lipgloss.Color
+	colorTitle    lipgloss.Color
+	colorSuccess  lipgloss.Color
+	colorMuted    lipgloss.Color
+	colorSelBg    lipgloss.Color
+	colorAccent   lipgloss.Color
+	colorError    lipgloss.Color
 
 	styleTitle        lipgloss.Style
 	styleHeader       lipgloss.Style
@@ -32,23 +32,23 @@ func init() {
 }
 
 func ApplyColors(c core.ColorsConfig) {
-	colorPrimary = lipgloss.Color(c.Primary)
-	colorGreen = lipgloss.Color(c.Green)
-	colorDimmed = lipgloss.Color(c.Dimmed)
-	colorHighlight = lipgloss.Color(c.Highlight)
-	colorCyan = lipgloss.Color(c.Cyan)
-	colorRed = lipgloss.Color(c.Red)
+	colorTitle = lipgloss.Color(c.Title)
+	colorSuccess = lipgloss.Color(c.Success)
+	colorMuted = lipgloss.Color(c.Muted)
+	colorSelBg = lipgloss.Color(c.SelectedBg)
+	colorAccent = lipgloss.Color(c.Accent)
+	colorError = lipgloss.Color(c.Error)
 
-	styleTitle = lipgloss.NewStyle().Bold(true).Foreground(colorPrimary)
-	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(colorDimmed)
+	styleTitle = lipgloss.NewStyle().Bold(true).Foreground(colorTitle)
+	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(colorMuted)
 	styleSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color(c.Separator))
-	styleSelectedRow = lipgloss.NewStyle().Background(colorHighlight).Foreground(lipgloss.Color(c.SelectedFg))
+	styleSelectedRow = lipgloss.NewStyle().Background(colorSelBg).Foreground(lipgloss.Color(c.SelectedFg))
 	styleNormalRow = lipgloss.NewStyle()
-	styleCheckOn = lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
-	styleCheckOff = lipgloss.NewStyle().Foreground(colorDimmed)
-	styleHint = lipgloss.NewStyle().Foreground(colorDimmed)
-	styleFilter = lipgloss.NewStyle().Foreground(colorCyan)
-	styleError = lipgloss.NewStyle().Foreground(colorRed).Bold(true)
-	styleSpinner = lipgloss.NewStyle().Foreground(colorPrimary)
-	styleAutocomplete = lipgloss.NewStyle().Foreground(colorDimmed)
+	styleCheckOn = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+	styleCheckOff = lipgloss.NewStyle().Foreground(colorMuted)
+	styleHint = lipgloss.NewStyle().Foreground(colorMuted)
+	styleFilter = lipgloss.NewStyle().Foreground(colorAccent)
+	styleError = lipgloss.NewStyle().Foreground(colorError).Bold(true)
+	styleSpinner = lipgloss.NewStyle().Foreground(colorTitle)
+	styleAutocomplete = lipgloss.NewStyle().Foreground(colorMuted)
 }

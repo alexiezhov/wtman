@@ -19,7 +19,7 @@ var allCommands = []string{
 
 type StatusBarModel struct {
 	active      bool
-	input       string
+	query       string // what the user typed (used for filtering)
 	selectedIdx int
 	width       int
 }
@@ -42,14 +42,14 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEscape:
 			m.active = false
-			m.input = ""
+			m.query = ""
 			m.selectedIdx = -1
 			return m, nil
 
 		case tea.KeyEnter:
 			cmd := m.resolveCommand()
 			m.active = false
-			m.input = ""
+			m.query = ""
 			m.selectedIdx = -1
 			if cmd != "" {
 				return m, func() tea.Msg {
@@ -65,7 +65,6 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 				if m.selectedIdx >= len(matches) {
 					m.selectedIdx = 0
 				}
-				m.input = matches[m.selectedIdx]
 			}
 			return m, nil
 
@@ -75,22 +74,21 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 				if m.selectedIdx < 0 {
 					m.selectedIdx = len(matches) - 1
 				}
-				m.input = matches[m.selectedIdx]
 			}
 			return m, nil
 
 		case tea.KeyBackspace:
-			if len(m.input) > 0 {
-				m.input = m.input[:len(m.input)-1]
+			if len(m.query) > 0 {
+				m.query = m.query[:len(m.query)-1]
 				m.selectedIdx = -1
 			}
-			if m.input == "" {
+			if m.query == "" {
 				m.active = false
 			}
 			return m, nil
 
 		case tea.KeyRunes:
-			m.input += string(msg.Runes)
+			m.query += string(msg.Runes)
 			m.selectedIdx = -1
 			return m, nil
 		}
@@ -100,7 +98,7 @@ func (m StatusBarModel) Update(msg tea.Msg) (StatusBarModel, tea.Cmd) {
 
 func (m StatusBarModel) Activate() StatusBarModel {
 	m.active = true
-	m.input = "/"
+	m.query = "/"
 	m.selectedIdx = -1
 	return m
 }
@@ -110,13 +108,21 @@ func (m StatusBarModel) SetWidth(w int) StatusBarModel {
 	return m
 }
 
+func (m StatusBarModel) displayText() string {
+	matches := m.matchingCommands()
+	if m.selectedIdx >= 0 && m.selectedIdx < len(matches) {
+		return matches[m.selectedIdx]
+	}
+	return m.query
+}
+
 func (m StatusBarModel) View() string {
 	if !m.active {
 		return ""
 	}
 
 	cursor := styleFilter.Render("\u2588")
-	line := "  " + m.input + cursor
+	line := "  " + m.displayText() + cursor
 
 	matches := m.matchingCommands()
 	if len(matches) > 0 {
@@ -125,7 +131,7 @@ func (m StatusBarModel) View() string {
 			if i == m.selectedIdx {
 				rendered = append(rendered, lipgloss.NewStyle().
 					Bold(true).
-					Foreground(colorCyan).
+					Foreground(colorAccent).
 					Render(c))
 			} else {
 				rendered = append(rendered, styleAutocomplete.Render(c))
@@ -138,31 +144,48 @@ func (m StatusBarModel) View() string {
 }
 
 func (m StatusBarModel) matchingCommands() []string {
-	if m.input == "/" {
+	if m.query == "/" {
 		return allCommands
 	}
-	var matches []string
+	raw := strings.TrimPrefix(m.query, "/")
+	if raw == "" {
+		return allCommands
+	}
+	lower := strings.ToLower(raw)
+
+	type scored struct {
+		cmd   string
+		score int
+	}
+	var matches []scored
 	for _, c := range allCommands {
-		if strings.HasPrefix(c, m.input) {
-			matches = append(matches, c)
+		name := strings.TrimPrefix(c, "/")
+		if s := fuzzyScore(strings.ToLower(name), lower); s > 0 {
+			matches = append(matches, scored{cmd: c, score: s})
 		}
 	}
-	return matches
+	for i := 1; i < len(matches); i++ {
+		for j := i; j > 0 && matches[j].score > matches[j-1].score; j-- {
+			matches[j], matches[j-1] = matches[j-1], matches[j]
+		}
+	}
+	result := make([]string, len(matches))
+	for i, s := range matches {
+		result[i] = s.cmd
+	}
+	return result
 }
 
 func (m StatusBarModel) resolveCommand() string {
 	matches := m.matchingCommands()
-	// Exact match
-	for _, c := range allCommands {
-		if c == m.input {
-			return c
-		}
-	}
-	// If user has selected one via Tab/arrows, use it
 	if m.selectedIdx >= 0 && m.selectedIdx < len(matches) {
 		return matches[m.selectedIdx]
 	}
-	// Single match = autocomplete
+	for _, c := range allCommands {
+		if c == m.query {
+			return c
+		}
+	}
 	if len(matches) == 1 {
 		return matches[0]
 	}

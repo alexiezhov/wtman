@@ -102,9 +102,9 @@ func (m BranchListModel) View() string {
 
 	// Separator line
 	line := styleSeparator.Render(
-		"  " + strings.Repeat("\u2500", dateW) + "\u253c" +
-			strings.Repeat("\u2500", branchW+2) + "\u253c" +
-			strings.Repeat("\u2500", reposW+2))
+		"  " + strings.Repeat("\u2500", dateW) + "\u2500\u253c\u2500" +
+			strings.Repeat("\u2500", branchW) + "\u2500\u253c\u2500" +
+			strings.Repeat("\u2500", reposW))
 	b.WriteString(line + "\n")
 
 	if len(m.branches) == 0 {
