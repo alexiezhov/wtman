@@ -1,0 +1,92 @@
+package core
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+func runGit(repoDir string, args ...string) (string, error) {
+	cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"LANGUAGE=C",
+		"LC_ALL=C",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func branchExistsLocally(repoDir, branch string) bool {
+	_, err := runGit(repoDir, "rev-parse", "--verify", "--quiet", branch)
+	return err == nil
+}
+
+func branchExistsRemote(repoDir, branch string) bool {
+	_ = fetchOrigin(repoDir)
+	_, err := runGit(repoDir, "rev-parse", "--verify", "--quiet", "origin/"+branch)
+	return err == nil
+}
+
+func fetchOrigin(repoDir string) error {
+	_, err := runGit(repoDir, "fetch", "--quiet", "origin")
+	return err
+}
+
+func defaultStartPoint(repoDir string) (string, error) {
+	for _, candidate := range []string{"main", "master"} {
+		if branchExistsLocally(repoDir, candidate) {
+			return candidate, nil
+		}
+		if branchExistsRemote(repoDir, candidate) {
+			return "origin/" + candidate, nil
+		}
+	}
+	return "", fmt.Errorf("no main/master branch found in %s", filepath.Base(repoDir))
+}
+
+func IsGitRepo(path string) bool {
+	info, err := os.Stat(filepath.Join(path, ".git"))
+	if err != nil {
+		return false
+	}
+	return info.IsDir() || info.Mode().IsRegular()
+}
+
+var gitdirRe = regexp.MustCompile(`(?m)^gitdir:\s*(.+)$`)
+
+// mainRepoFromWorktree resolves the primary repo path from a linked worktree.
+// A linked worktree has a .git file (not dir) containing "gitdir: <path>".
+// That path points to .git/worktrees/<name> in the main repo.
+func mainRepoFromWorktree(wtPath string) (string, error) {
+	gitEntry := filepath.Join(wtPath, ".git")
+	info, err := os.Stat(gitEntry)
+	if err != nil {
+		return "", fmt.Errorf("not a git worktree: %s", wtPath)
+	}
+	if info.IsDir() {
+		return wtPath, nil
+	}
+	data, err := os.ReadFile(gitEntry)
+	if err != nil {
+		return "", err
+	}
+	m := gitdirRe.FindSubmatch(data)
+	if m == nil {
+		return "", fmt.Errorf("cannot parse .git file in %s", wtPath)
+	}
+	gd := strings.TrimSpace(string(m[1]))
+	if !filepath.IsAbs(gd) {
+		gd = filepath.Join(wtPath, gd)
+	}
+	// gd = <main-repo>/.git/worktrees/<name>
+	// go up 3 levels: worktrees -> .git -> main-repo
+	main := filepath.Dir(filepath.Dir(filepath.Dir(gd)))
+	return filepath.Clean(main), nil
+}
