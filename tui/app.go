@@ -289,6 +289,8 @@ func (m AppModel) handleCommand(cmd CommandMsg) (tea.Model, tea.Cmd) {
 		return m.enterDeleteMode()
 	case "/rename":
 		return m.enterRenameMode()
+	case "/pull":
+		return m.runPull()
 	case "/source-dir":
 		m.mode = modeSourceDirPrompt
 		m.prompt = m.prompt.ActivateText(fmt.Sprintf("Source dir (%s):", m.cfg.SourceDir))
@@ -514,6 +516,24 @@ func (m AppModel) runRename(newName string) (tea.Model, tea.Cmd) {
 		m.spinner.Tick,
 		func() tea.Msg {
 			err := core.RenameFeatureBranch(targetDir, oldName, newName)
+			return OperationDoneMsg{Err: err}
+		},
+	)
+}
+
+func (m AppModel) runPull() (tea.Model, tea.Cmd) {
+	br, ok := m.branchList.SelectedBranch()
+	if !ok {
+		return m, nil
+	}
+	m.mode = modeSpinner
+	m.spinnerMsg = "Pulling remote changes..."
+	branch := br.Name
+	targetDir := m.cfg.TargetDir
+	return m, tea.Batch(
+		m.spinner.Tick,
+		func() tea.Msg {
+			err := core.PullFeatureBranch(targetDir, branch)
 			return OperationDoneMsg{Err: err}
 		},
 	)

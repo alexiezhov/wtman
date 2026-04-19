@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/hibobio/wtman/core"
@@ -17,11 +16,12 @@ const (
 )
 
 type BranchListModel struct {
-	branches []core.FeatureBranch
-	cursor   int
-	width    int
-	height   int
-	sortMode SortMode
+	branches     []core.FeatureBranch
+	cursor       int
+	selectedName string
+	width        int
+	height       int
+	sortMode     SortMode
 }
 
 func NewBranchList() BranchListModel {
@@ -31,9 +31,19 @@ func NewBranchList() BranchListModel {
 func (m BranchListModel) SetBranches(branches []core.FeatureBranch) BranchListModel {
 	m.branches = branches
 	m.sortBranches()
+	if len(m.branches) == 0 {
+		m.cursor = 0
+		m.selectedName = ""
+		return m
+	}
+	if idx := indexOfBranchName(m.branches, m.selectedName); idx >= 0 {
+		m.cursor = idx
+		return m
+	}
 	if m.cursor >= len(m.branches) {
 		m.cursor = max(0, len(m.branches)-1)
 	}
+	m.selectedName = m.branches[m.cursor].Name
 	return m
 }
 
@@ -44,8 +54,26 @@ func (m BranchListModel) SetSize(w, h int) BranchListModel {
 }
 
 func (m BranchListModel) SetSortMode(mode SortMode) BranchListModel {
+	name := m.selectedName
+	if name == "" && len(m.branches) > 0 && m.cursor >= 0 && m.cursor < len(m.branches) {
+		name = m.branches[m.cursor].Name
+	}
 	m.sortMode = mode
 	m.sortBranches()
+	if len(m.branches) == 0 {
+		m.cursor = 0
+		m.selectedName = ""
+		return m
+	}
+	if idx := indexOfBranchName(m.branches, name); idx >= 0 {
+		m.cursor = idx
+		m.selectedName = name
+		return m
+	}
+	if m.cursor >= len(m.branches) {
+		m.cursor = max(0, len(m.branches)-1)
+	}
+	m.selectedName = m.branches[m.cursor].Name
 	return m
 }
 
@@ -63,14 +91,20 @@ func (m BranchListModel) Update(msg tea.Msg) (BranchListModel, tea.Cmd) {
 		case tea.KeyUp:
 			if m.cursor > 0 {
 				m.cursor--
+				m.selectedName = m.branches[m.cursor].Name
 			}
 		case tea.KeyDown:
 			if m.cursor < len(m.branches)-1 {
 				m.cursor++
+				m.selectedName = m.branches[m.cursor].Name
 			}
 		case tea.KeyEnter:
 			if b, ok := m.SelectedBranch(); ok {
 				return m, func() tea.Msg { return BranchSelectedMsg{Branch: b} }
+			}
+		case tea.KeyRunes:
+			if string(msg.Runes) == "d" {
+				return m, func() tea.Msg { return CommandMsg{Name: "/delete"} }
 			}
 		}
 	}
@@ -122,21 +156,50 @@ func (m BranchListModel) View() string {
 	for i := start; i < end; i++ {
 		br := m.branches[i]
 		date := br.CreatedAt.Format("2006-01-02")
-		repos := truncate(strings.Join(br.Repos, ", "), reposW)
+
+		var reposPlainParts []string
+		for _, r := range br.Repos {
+			if br.NonMasterRepos[r] {
+				reposPlainParts = append(reposPlainParts, r+"!")
+			} else {
+				reposPlainParts = append(reposPlainParts, r)
+			}
+		}
+		reposPlain := truncate(strings.Join(reposPlainParts, ", "), reposW)
+
+		var reposStyledParts []string
+		for _, r := range br.Repos {
+			if br.NonMasterRepos[r] {
+				reposStyledParts = append(reposStyledParts, r+styleError.Render("!"))
+			} else {
+				reposStyledParts = append(reposStyledParts, r)
+			}
+		}
+		reposStyled := truncate(strings.Join(reposStyledParts, ", "), reposW)
 
 		dateCol := padRight(date, dateW)
-		branchCol := padRight(br.Name, branchW)
-		reposCol := padRight(repos, reposW)
-
-		row := "  " + dateCol + sep + branchCol + sep + reposCol
 
 		if i == m.cursor {
-			row = styleSelectedRow.Width(m.width).Render(
+			branchDisplay := br.Name
+			if br.HasDirty {
+				branchDisplay = br.Name + " *"
+			}
+			row := styleSelectedRow.Width(m.width).Render(
 				"  " + padRight(date, dateW) + " \u2502 " +
-					padRight(br.Name, branchW) + " \u2502 " +
-					padRight(repos, reposW))
+					padRight(branchDisplay, branchW) + " \u2502 " +
+					padRight(reposPlain, reposW))
+			b.WriteString(row + "\n")
+			continue
 		}
 
+		var branchCol string
+		if br.HasDirty {
+			branchCol = padRight(br.Name, branchW-2) + styleError.Render(" *")
+		} else {
+			branchCol = padRight(br.Name, branchW)
+		}
+		reposCol := padRightWidth(reposStyled, reposW)
+		row := "  " + dateCol + sep + branchCol + sep + reposCol
 		b.WriteString(row + "\n")
 	}
 
@@ -212,5 +275,25 @@ func (m BranchListModel) HintView() string {
 	if len(m.branches) == 0 {
 		return styleHint.Render("  / command")
 	}
-	return styleHint.Render(fmt.Sprintf("  up/down navigate  ENTER update  / command"))
+	return styleHint.Render("  up/down navigate  ENTER update  d delete  / command")
+}
+
+func indexOfBranchName(branches []core.FeatureBranch, name string) int {
+	if name == "" {
+		return -1
+	}
+	for i, b := range branches {
+		if b.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func padRightWidth(s string, w int) string {
+	n := lipgloss.Width(s)
+	if n >= w {
+		return s
+	}
+	return s + strings.Repeat(" ", w-n)
 }

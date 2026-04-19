@@ -67,6 +67,15 @@ func IsWorktreeDirty(wtPath string) bool {
 	return strings.TrimSpace(out) != ""
 }
 
+func IsOnMainBranch(repoDir string) bool {
+	out, err := runGit(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return true
+	}
+	branch := strings.TrimSpace(out)
+	return branch == "main" || branch == "master"
+}
+
 var gitdirRe = regexp.MustCompile(`(?m)^gitdir:\s*(.+)$`)
 
 // mainRepoFromWorktree resolves the primary repo path from a linked worktree.

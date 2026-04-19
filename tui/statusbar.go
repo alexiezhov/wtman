@@ -11,6 +11,7 @@ var allCommands = []string{
 	"/new",
 	"/delete",
 	"/rename",
+	"/pull",
 	"/source-dir",
 	"/target-dir",
 	"/sort-by-name",

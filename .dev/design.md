@@ -217,7 +217,28 @@ Same layout as screen 3, but repos already in the feature branch are pre-selecte
 
 All input blocked. Spinner auto-animates via bubbletea tick commands.
 
-### 10. Error Display
+### 10. Branch List with Dirty & Non-Master Markers
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  wtman                                                          │
+│                                                                 │
+│  Date       │ Branch                  │ Repos                   │
+│  ───────────┼─────────────────────────┼──────────────────────── │
+│  2026-01-01 │ rename-report-fields    │ billing, report-engine  │
+│░░2026-03-15░│░migrate-auth-service *░░│░auth!, billing, paym...░│
+│  2026-04-10 │ fix-payment-rounding    │ payment-gateway!        │
+│                                                                 │
+│                                                                 │
+│  up/down navigate  ENTER update  d delete  / command            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- `*` after branch name (red) = at least one repo in the branch has uncommitted changes
+- `!` after repo name (red) = the source repo is not on master/main
+- `d` key = shortcut for `/delete` command
+
+### 11. Error Display
 
 Errors from any operation are shown between the repo list and the status bar/hint area, styled in the error color. Errors auto-dismiss after 5 seconds. No errors are swallowed -- all git failures, config save errors, workspace file errors, and post-command errors are surfaced.
 

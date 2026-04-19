@@ -69,18 +69,17 @@ wtman/
   core/
     config.go          -- Config struct, ColorsConfig struct, Load/Save, defaults
     repo.go            -- DiscoverRepos, IsGitRepo, RepoEntry
-    branch.go          -- FeatureBranch, BranchToDirName/DirNameToBranch (/ <-> --),
-                          ListFeatureBranches, CreateWorktrees,
-                          DeleteFeatureBranch (removes worktrees + git branch -d + prune),
-                          RenameFeatureBranch (renames dir + git branch -m in each worktree),
-                          UpdateFeatureBranch (add/remove repos, forceRemove flag),
-                          DirtyRemovedWorktrees (check for uncommitted changes before removal)
+    branch.go          -- FeatureBranch (incl. HasDirty, NonMasterRepos), BranchToDirName/DirNameToBranch,
+                          ListFeatureBranches (computes dirty/non-master status per repo),
+                          CreateWorktrees, DeleteFeatureBranch, RenameFeatureBranch,
+                          UpdateFeatureBranch (forceRemove flag), DirtyRemovedWorktrees,
+                          PullFeatureBranch (git pull all worktrees)
     workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
-    git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, etc.)
+    git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
-    branchlist.go      -- feature branch list: date | name | repos header, up/down, Enter for update
+    branchlist.go      -- feature branch list: date | name | repos header, up/down, Enter for update, d for delete, selection stability by name, dirty * and non-master ! markers
     reposelect.go      -- repo multi-select: up/down, Space toggle, fuzzy filter, ESC cancel/clear
     statusbar.go       -- / to enter command mode, fuzzy autocomplete, Tab/Up/Down cycling, ESC/Enter
     prompt.go          -- single-line text input (branch name, rename, confirmations)
@@ -149,7 +148,7 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 - `/` opens command bar
 - `q` quits
 - Ctrl+C / Ctrl+D quits from any mode
-- Commands: `/new`, `/delete`, `/rename`, `/source-dir` (shows current), `/target-dir` (shows current), `/sort-by-name`, `/sort-by-date`
+- Commands: `/new`, `/delete`, `/rename`, `/pull`, `/source-dir` (shows current), `/target-dir` (shows current), `/sort-by-name`, `/sort-by-date`
 - Table has a header row (Date | Branch | Repos) with a separator line
 - Repos column shows sorted repo names, truncated with `...` if they exceed available width
 - List auto-refreshes when watcher detects changes in target dir
@@ -340,6 +339,23 @@ Called before UpdateFeatureBranch. Computes which repos would be removed by the 
 - Runs in a goroutine, polls source and target dirs every 2 seconds
 - Sends events on a channel when directory listing changes (new/removed entries)
 - Bubbletea subscribes via `tea.Cmd` that blocks on channel read; re-subscribes after each event
+
+## Pending Features
+
+### F1: Selection stability on branch list refresh — STATUS: DONE
+When the branch list is refreshed (new branch added, removed, sort changed, watcher update), the currently selected branch remains selected by name. `BranchListModel.selectedName` tracks the current selection; `SetBranches` and `SetSortMode` both restore cursor position by name after re-sorting. Only branch list refresh is needed since all list mutations go through `SetBranches` or `SetSortMode`.
+
+### F2: Delete key shortcut — STATUS: DONE
+Pressing `d` key in branch list mode emits `CommandMsg{Name: "/delete"}`, identical to the `/delete` command. Hint bar updated to show `d delete`.
+
+### F3: Dirty star marker on feature branches — STATUS: DONE
+`FeatureBranch.HasDirty` is computed in `ListFeatureBranches` by checking `IsWorktreeDirty` on each repo worktree. Branch list renders red `*` after branch name (via `styleError`) for dirty branches. Selected row uses plain `*` within the selected style.
+
+### F4: /pull command — STATUS: DONE
+`/pull` added to command palette. `PullFeatureBranch` in `core/branch.go` runs `git pull` in each worktree, collecting errors. Runs with spinner; errors displayed via standard error display.
+
+### F5: Non-master repo marker — STATUS: DONE
+`FeatureBranch.NonMasterRepos` is computed in `ListFeatureBranches` using `mainRepoFromWorktree` + `IsOnMainBranch`. Repos column renders red `!` after repo names whose source repo is not on master/main. `IsOnMainBranch` checks `git rev-parse --abbrev-ref HEAD`.
 
 ## Dependencies
 
