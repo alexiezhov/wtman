@@ -59,6 +59,14 @@ func IsGitRepo(path string) bool {
 	return info.IsDir() || info.Mode().IsRegular()
 }
 
+func IsWorktreeDirty(wtPath string) bool {
+	out, err := runGit(wtPath, "status", "--porcelain")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) != ""
+}
+
 var gitdirRe = regexp.MustCompile(`(?m)^gitdir:\s*(.+)$`)
 
 // mainRepoFromWorktree resolves the primary repo path from a linked worktree.

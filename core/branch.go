@@ -184,7 +184,29 @@ func RenameFeatureBranch(targetDir, oldName, newName string) error {
 	return os.Rename(oldDir, newDir)
 }
 
-func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir string) error {
+func DirtyRemovedWorktrees(repos []RepoEntry, branch, targetDir string) []string {
+	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
+	current := ListReposOnDisk(branchDir)
+
+	desiredSet := make(map[string]bool, len(repos))
+	for _, r := range repos {
+		desiredSet[r.Name] = true
+	}
+
+	var dirty []string
+	for _, name := range current {
+		if desiredSet[name] {
+			continue
+		}
+		wtPath := filepath.Join(branchDir, name)
+		if IsWorktreeDirty(wtPath) {
+			dirty = append(dirty, name)
+		}
+	}
+	return dirty
+}
+
+func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir string, forceRemove bool) error {
 	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
 	current := ListReposOnDisk(branchDir)
 
@@ -205,9 +227,16 @@ func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir 
 		wtPath := filepath.Join(branchDir, name)
 		mainRepo, err := mainRepoFromWorktree(wtPath)
 		if err == nil {
-			_, _ = runGit(mainRepo, "worktree", "remove", wtPath)
+			args := []string{"worktree", "remove"}
+			if forceRemove {
+				args = append(args, "--force")
+			}
+			args = append(args, wtPath)
+			_, _ = runGit(mainRepo, args...)
 			_, _ = runGit(mainRepo, "worktree", "prune")
-			_, _ = runGit(mainRepo, "branch", "-d", branch)
+		}
+		if _, err := os.Stat(wtPath); err == nil {
+			_ = os.RemoveAll(wtPath)
 		}
 	}
 
@@ -236,6 +265,9 @@ func addWorktree(repoPath, branch, wtPath string) error {
 	if err := os.MkdirAll(filepath.Dir(wtPath), 0o755); err != nil {
 		return err
 	}
+
+	// Clean up stale worktree refs so re-adding a previously removed repo works
+	_, _ = runGit(repoPath, "worktree", "prune")
 
 	if branchExistsLocally(repoPath, branch) {
 		_, err := runGit(repoPath, "worktree", "add", wtPath, branch)

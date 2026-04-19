@@ -110,7 +110,26 @@ Autocomplete uses fuzzy matching (same algorithm as repo filter). Suggestions sh
 
 ### 5. Repo Select (update existing branch)
 
-Same layout as screen 3, but repos already in the feature branch are pre-selected. Header reads `wtman ── update <branch-name>`. Toggling off a repo will remove its worktree on confirm.
+Same layout as screen 3, but repos already in the feature branch are pre-selected. Header reads `wtman ── update <branch-name>`. Toggling off a repo will remove its worktree on confirm. If any unchecked repos have uncommitted changes, a dirty-worktree confirmation is shown before proceeding.
+
+### 5b. Dirty Worktree Confirmation (on update with dirty repos)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  wtman                                                          │
+│                                                                 │
+│  Date       │ Branch                  │ Repos                   │
+│  ───────────┼─────────────────────────┼──────────────────────── │
+│  2026-01-01 │ rename-report-fields    │ billing, report-engine  │
+│░░2026-03-15░│░migrate-auth-service░░░░│░auth, billing, paym...░░│
+│  2026-04-10 │ fix-payment-rounding    │ payment-gateway         │
+│                                                                 │
+│                                                                 │
+│  Dirty worktrees: auth, billing. Force remove? (uncommitted     │
+│  changes will be lost)                                          │
+│  y confirm  n/ESC cancel                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### 6. Branch Name Prompt
 
@@ -197,3 +216,24 @@ Same layout as screen 3, but repos already in the feature branch are pre-selecte
 ```
 
 All input blocked. Spinner auto-animates via bubbletea tick commands.
+
+### 10. Error Display
+
+Errors from any operation are shown between the repo list and the status bar/hint area, styled in the error color. Errors auto-dismiss after 5 seconds. No errors are swallowed -- all git failures, config save errors, workspace file errors, and post-command errors are surfaced.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  wtman                                                          │
+│                                                                 │
+│  Date       │ Branch                  │ Repos                   │
+│  ───────────┼─────────────────────────┼──────────────────────── │
+│  2026-01-01 │ rename-report-fields    │ billing, report-engine  │
+│░░2026-03-15░│░migrate-auth-service░░░░│░auth, billing, paym...░░│
+│  2026-04-10 │ fix-payment-rounding    │ payment-gateway         │
+│                                                                 │
+│  Error: failed repos:                                           │
+│    auth: branch already checked out                             │
+│                                                                 │
+│  up/down navigate  ENTER update  / command                      │
+└─────────────────────────────────────────────────────────────────┘
+```

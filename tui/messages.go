@@ -28,6 +28,12 @@ type ConfirmResultMsg struct {
 	Confirmed bool
 }
 
+type DirtyWorktreesMsg struct {
+	DirtyRepos []string
+}
+
+type clearErrorMsg struct{}
+
 // Operation result messages
 
 type OperationDoneMsg struct {

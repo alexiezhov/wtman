@@ -73,18 +73,19 @@ wtman/
                           ListFeatureBranches, CreateWorktrees,
                           DeleteFeatureBranch (removes worktrees + git branch -d + prune),
                           RenameFeatureBranch (renames dir + git branch -m in each worktree),
-                          UpdateFeatureBranch (add/remove repos)
+                          UpdateFeatureBranch (add/remove repos, forceRemove flag),
+                          DirtyRemovedWorktrees (check for uncommitted changes before removal)
     workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
-    git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, etc.)
+    git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, etc.)
   tui/
-    app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions
+    app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
     branchlist.go      -- feature branch list: date | name | repos header, up/down, Enter for update
     reposelect.go      -- repo multi-select: up/down, Space toggle, fuzzy filter, ESC cancel/clear
     statusbar.go       -- / to enter command mode, fuzzy autocomplete, Tab/Up/Down cycling, ESC/Enter
     prompt.go          -- single-line text input (branch name, rename, confirmations)
     styles.go          -- ApplyColors(ColorsConfig), lipgloss style variables
-    messages.go        -- shared message types (outcome messages, watcher events, operation results)
+    messages.go        -- shared message types (outcome messages, watcher events, operation results, DirtyWorktreesMsg, clearErrorMsg)
 ```
 
 ## Config
@@ -152,6 +153,7 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 - Table has a header row (Date | Branch | Repos) with a separator line
 - Repos column shows sorted repo names, truncated with `...` if they exceed available width
 - List auto-refreshes when watcher detects changes in target dir
+- **Error display**: errors from any operation appear between the repo list and the status bar, styled in error color, auto-dismissed after 5 seconds. All errors are surfaced -- no swallowed errors.
 
 ### Mode 1: With command bar open (after pressing `/`)
 
@@ -196,7 +198,7 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
 - Space to toggle selection; `[x]` rendered in green
 - Typing applies fuzzy filter: exact substrings rank highest, then prefix matches, word-boundary matches (after `-`, `_`, `/`), and consecutive char matches. E.g. `pga` matches `payment-gateway`.
 - ESC clears filter; ESC with empty filter cancels mode
-- Enter with 1+ selected repos proceeds to branch name prompt (for `/new`) or applies changes (for update)
+- Enter with 1+ selected repos proceeds to branch name prompt (for `/new`) or checks for dirty worktrees and applies changes (for update)
 - Repos sorted alphabetically by name (when unfiltered) or by fuzzy score (when filtered)
 - Status bar shows selected count next to confirm: `ENTER confirm (2)`
 - List auto-refreshes when watcher detects changes in source dir
@@ -273,7 +275,7 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
 ### CreateWorktrees(repos []RepoEntry, branch string, targetDir string) error
 
 1. Create `targetDir/<encoded-branch>/` directory (branch `/` encoded as `--`)
-2. For each repo: `git worktree add targetDir/<encoded-branch>/repoName branch`
+2. For each repo: `git worktree prune` (clean stale refs), then `git worktree add targetDir/<encoded-branch>/repoName branch`
    - If branch exists locally or on origin, check it out
    - If branch doesn't exist, create from main/master
    - **Per-repo errors are collected, not fatal** -- all repos are attempted even if some fail. Error message lists all failures.
@@ -315,13 +317,23 @@ Creates a `.code-workspace` file in the branch directory so the user can open al
    - `git branch -m oldName newName` inside the worktree
 2. Rename directory `targetDir/<encoded-old>` to `targetDir/<encoded-new>`
 
-### UpdateFeatureBranch(repos []RepoEntry, branch, targetDir string) error
+### DirtyRemovedWorktrees(repos []RepoEntry, branch, targetDir string) []string
+
+Called before UpdateFeatureBranch. Computes which repos would be removed by the update and checks each for uncommitted changes (`git status --porcelain`). Returns the list of dirty repo names.
+
+### UpdateFeatureBranch(repos []RepoEntry, branch, targetDir string, forceRemove bool) error
 
 1. Discover current worktrees under `targetDir/<encoded-branch>/`
 2. Compute diff: repos to add, repos to remove
-3. For removals: `git worktree remove`, `git worktree prune`, `git branch -d`
-4. For additions: same as CreateWorktrees per-repo logic (per-repo errors collected, not fatal)
+3. For removals: `git worktree remove` (with `--force` if `forceRemove`), `git worktree prune`. Directory is always cleaned up via `os.RemoveAll` after removal attempt. **Does not delete the git branch** -- the branch is still in use by other repos in the feature branch.
+4. For additions: same as CreateWorktrees per-repo logic (per-repo errors collected, not fatal). Runs `git worktree prune` before adding to clean up stale refs from previous removals.
 5. Regenerate Cursor workspace file from repos actually on disk
+
+**Update flow in TUI:**
+1. User confirms repo selection → `DirtyRemovedWorktrees` checks for dirty removals
+2. If no dirty repos → proceeds with `forceRemove=false`
+3. If dirty repos found → shows confirmation: "Dirty worktrees: X, Y. Force remove? (uncommitted changes will be lost)"
+4. On confirm → `forceRemove=true`; on deny → back to branch list
 
 ### DirWatcher
 

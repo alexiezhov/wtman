@@ -20,6 +20,7 @@ const (
 	modeRenamePrompt
 	modeSourceDirPrompt
 	modeTargetDirPrompt
+	modeDirtyConfirm
 	modeSpinner
 )
 
@@ -107,26 +108,28 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case branchesLoadedMsg:
 		m.branchList = m.branchList.SetBranches(msg.branches)
-		m.errMsg = ""
 		if msg.err != nil {
-			m.errMsg = msg.err.Error()
+			return m, m.setError(msg.err.Error())
 		}
 		return m, nil
 
 	case reposLoadedMsg:
 		m.repoSelect = m.repoSelect.SetRepos(msg.repos)
 		if msg.err != nil {
-			m.errMsg = msg.err.Error()
+			return m, m.setError(msg.err.Error())
 		}
+		return m, nil
+
+	case clearErrorMsg:
+		m.errMsg = ""
 		return m, nil
 
 	case OperationDoneMsg:
 		m.mode = modeBranchList
 		if msg.Err != nil {
-			m.errMsg = msg.Err.Error()
-		} else {
-			m.errMsg = ""
+			return m, tea.Batch(m.loadBranches, m.setError(msg.Err.Error()))
 		}
+		m.errMsg = ""
 		return m, m.loadBranches
 
 	case CommandMsg:
@@ -142,8 +145,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.prompt = m.prompt.ActivateText("Branch name:")
 			return m, nil
 		}
-		// Update flow — apply immediately
-		return m.runUpdate()
+		return m.checkDirtyBeforeUpdate()
+
+	case DirtyWorktreesMsg:
+		if len(msg.DirtyRepos) == 0 {
+			return m.runUpdate(false)
+		}
+		m.mode = modeDirtyConfirm
+		label := fmt.Sprintf("Dirty worktrees: %s. Force remove? (uncommitted changes will be lost)", strings.Join(msg.DirtyRepos, ", "))
+		m.prompt = m.prompt.ActivateConfirm(label)
+		return m, nil
 
 	case ReposCancelledMsg:
 		m.mode = modeBranchList
@@ -187,7 +198,7 @@ func (m AppModel) View() string {
 
 	// Main content
 	switch m.mode {
-	case modeBranchList, modeDeleteConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
+	case modeBranchList, modeDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
 		b.WriteString(m.branchList.View())
 	case modeRepoSelect:
 		b.WriteString(m.repoSelect.View())
@@ -210,7 +221,7 @@ func (m AppModel) View() string {
 	switch m.mode {
 	case modeSpinner:
 		b.WriteString("  " + m.spinner.View() + " " + m.spinnerMsg + "\n")
-	case modeDeleteConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
+	case modeDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
 		b.WriteString(m.prompt.View() + "\n")
 	case modeRepoSelect:
 		if fv := m.repoSelect.FilterView(); fv != "" {
@@ -299,8 +310,11 @@ func (m AppModel) handleCommand(cmd CommandMsg) (tea.Model, tea.Cmd) {
 func (m AppModel) enterNewMode() (tea.Model, tea.Cmd) {
 	m.isNewFlow = true
 	m.mode = modeRepoSelect
-	repos, _ := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
+	repos, err := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
 	m.repoSelect = m.repoSelect.Activate(repos, nil, false, "new feature branch")
+	if err != nil {
+		return m, m.setError(err.Error())
+	}
 	return m, nil
 }
 
@@ -308,8 +322,11 @@ func (m AppModel) enterUpdateMode(branch core.FeatureBranch) (tea.Model, tea.Cmd
 	m.isNewFlow = false
 	m.pendingBranch = branch.Name
 	m.mode = modeRepoSelect
-	repos, _ := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
+	repos, err := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
 	m.repoSelect = m.repoSelect.Activate(repos, branch.Repos, true, "update "+branch.Name)
+	if err != nil {
+		return m, m.setError(err.Error())
+	}
 	return m, nil
 }
 
@@ -370,7 +387,10 @@ func (m AppModel) handlePromptResult(msg PromptResultMsg) (tea.Model, tea.Cmd) {
 		if dir != "" {
 			m.cfg.SourceDir = dir
 			m.watcher.SetSourceDir(dir)
-			_ = core.SaveConfig(m.cfgPath, m.cfg)
+			if err := core.SaveConfig(m.cfgPath, m.cfg); err != nil {
+				m.mode = modeBranchList
+				return m, m.setError("save config: " + err.Error())
+			}
 		}
 		m.mode = modeBranchList
 		return m, nil
@@ -380,7 +400,10 @@ func (m AppModel) handlePromptResult(msg PromptResultMsg) (tea.Model, tea.Cmd) {
 		if dir != "" {
 			m.cfg.TargetDir = dir
 			m.watcher.SetTargetDir(dir)
-			_ = core.SaveConfig(m.cfgPath, m.cfg)
+			if err := core.SaveConfig(m.cfgPath, m.cfg); err != nil {
+				m.mode = modeBranchList
+				return m, tea.Batch(m.loadBranches, m.setError("save config: "+err.Error()))
+			}
 		}
 		m.mode = modeBranchList
 		return m, m.loadBranches
@@ -395,8 +418,11 @@ func (m AppModel) handleConfirmResult(msg ConfirmResultMsg) (tea.Model, tea.Cmd)
 		m.mode = modeBranchList
 		return m, nil
 	}
-	if m.mode == modeDeleteConfirm {
+	switch m.mode {
+	case modeDeleteConfirm:
 		return m.runDelete()
+	case modeDirtyConfirm:
+		return m.runUpdate(true)
 	}
 	m.mode = modeBranchList
 	return m, nil
@@ -413,19 +439,36 @@ func (m AppModel) runCreate() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(
 		m.spinner.Tick,
 		func() tea.Msg {
-			err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir)
+			var errs []string
+			if err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir); err != nil {
+				errs = append(errs, err.Error())
+			}
 			branchDir := cfg.TargetDir + "/" + core.BranchToDirName(branch)
 			actual := core.ListReposOnDisk(branchDir)
-			_ = core.CreateCursorWorkspace(branchDir, actual)
-			if cfg.PostCommand != "" {
-				_ = core.RunPostCommand(cfg.PostCommand, branchDir)
+			if err := core.CreateCursorWorkspace(branchDir, actual); err != nil {
+				errs = append(errs, "workspace file: "+err.Error())
 			}
-			return OperationDoneMsg{Err: err}
+			if cfg.PostCommand != "" {
+				if err := core.RunPostCommand(cfg.PostCommand, branchDir); err != nil {
+					errs = append(errs, "post_command: "+err.Error())
+				}
+			}
+			return OperationDoneMsg{Err: joinErrors(errs)}
 		},
 	)
 }
 
-func (m AppModel) runUpdate() (tea.Model, tea.Cmd) {
+func (m AppModel) checkDirtyBeforeUpdate() (tea.Model, tea.Cmd) {
+	repos := m.pendingRepos
+	branch := m.pendingBranch
+	targetDir := m.cfg.TargetDir
+	return m, func() tea.Msg {
+		dirty := core.DirtyRemovedWorktrees(repos, branch, targetDir)
+		return DirtyWorktreesMsg{DirtyRepos: dirty}
+	}
+}
+
+func (m AppModel) runUpdate(forceRemove bool) (tea.Model, tea.Cmd) {
 	m.mode = modeSpinner
 	m.spinnerMsg = "Updating worktrees..."
 	repos := m.pendingRepos
@@ -434,11 +477,16 @@ func (m AppModel) runUpdate() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(
 		m.spinner.Tick,
 		func() tea.Msg {
-			err := core.UpdateFeatureBranch(cfg.SourceDir, repos, branch, cfg.TargetDir)
+			var errs []string
+			if err := core.UpdateFeatureBranch(cfg.SourceDir, repos, branch, cfg.TargetDir, forceRemove); err != nil {
+				errs = append(errs, err.Error())
+			}
 			branchDir := cfg.TargetDir + "/" + core.BranchToDirName(branch)
 			actual := core.ListReposOnDisk(branchDir)
-			_ = core.CreateCursorWorkspace(branchDir, actual)
-			return OperationDoneMsg{Err: err}
+			if err := core.CreateCursorWorkspace(branchDir, actual); err != nil {
+				errs = append(errs, "workspace file: "+err.Error())
+			}
+			return OperationDoneMsg{Err: joinErrors(errs)}
 		},
 	)
 }
@@ -506,4 +554,18 @@ func repoNames(repos []core.RepoEntry) []string {
 		names[i] = r.Name
 	}
 	return names
+}
+
+func (m *AppModel) setError(msg string) tea.Cmd {
+	m.errMsg = msg
+	return tea.Tick(5*time.Second, func(time.Time) tea.Msg {
+		return clearErrorMsg{}
+	})
+}
+
+func joinErrors(errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s", strings.Join(errs, "; "))
 }
