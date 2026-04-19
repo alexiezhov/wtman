@@ -1,4 +1,4 @@
-# wtman -- Design Principles & Screens
+# WTMAN - worktree manager -- Design Principles & Screens
 
 ## Design Principles
 
@@ -110,7 +110,7 @@ Autocomplete uses fuzzy matching (same algorithm as repo filter). Suggestions sh
 
 ### 5. Repo Select (update existing branch)
 
-Same layout as screen 3, but repos already in the feature branch are pre-selected. Header reads `wtman ── update <branch-name>`. Toggling off a repo will remove its worktree on confirm. If any unchecked repos have uncommitted changes, a dirty-worktree confirmation is shown before proceeding.
+Same layout as screen 3, but repos already in the feature branch are pre-selected. Header reads `WTMAN - worktree manager ── update <branch-name>`. Toggling off a repo will remove its worktree on confirm. If any unchecked repos have uncommitted changes, a dirty-worktree confirmation is shown before proceeding.
 
 ### 5b. Dirty Worktree Confirmation (on update with dirty repos)
 
@@ -226,8 +226,8 @@ All input blocked. Spinner auto-animates via bubbletea tick commands.
 │  Date       │ Branch                  │ Repos                   │
 │  ───────────┼─────────────────────────┼──────────────────────── │
 │  2026-01-01 │ rename-report-fields    │ billing, report-engine  │
-│░░2026-03-15░│░migrate-auth-service *░░│░auth!, billing, paym...░│
-│  2026-04-10 │ fix-payment-rounding    │ payment-gateway!        │
+│░░2026-03-15░│░migrate-auth-service *░░│░!auth, billing, paym...░│
+│  2026-04-10 │ fix-payment-rounding    │ !payment-gateway        │
 │                                                                 │
 │                                                                 │
 │  up/down navigate  ENTER update  d delete  / command            │
@@ -235,7 +235,7 @@ All input blocked. Spinner auto-animates via bubbletea tick commands.
 ```
 
 - `*` after branch name (red) = at least one repo in the branch has uncommitted changes
-- `!` after repo name (red) = the source repo is not on master/main
+- `!` before repo name (red) = the source repo is not on master/main
 - `d` key = shortcut for `/delete` command
 
 ### 11. Error Display

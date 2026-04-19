@@ -186,13 +186,13 @@ func (m AppModel) View() string {
 	var b strings.Builder
 
 	// Title
-	title := styleTitle.Render("  wtman")
+	title := styleTitle.Render("  WTMAN - worktree manager")
 	if m.mode == modeRepoSelect || m.mode == modeBranchNamePrompt {
 		suffix := "new feature branch"
 		if !m.isNewFlow {
 			suffix = "update " + m.pendingBranch
 		}
-		title = styleTitle.Render("  wtman") + styleHeader.Render(" \u2500\u2500 "+suffix)
+		title = styleTitle.Render("  WTMAN - worktree manager") + styleHeader.Render(" \u2500\u2500 "+suffix)
 	}
 	b.WriteString(title + "\n\n")
 

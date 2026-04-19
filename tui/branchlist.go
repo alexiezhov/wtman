@@ -102,9 +102,22 @@ func (m BranchListModel) Update(msg tea.Msg) (BranchListModel, tea.Cmd) {
 			if b, ok := m.SelectedBranch(); ok {
 				return m, func() tea.Msg { return BranchSelectedMsg{Branch: b} }
 			}
+		case tea.KeyBackspace, tea.KeyDelete:
+			return m, func() tea.Msg { return CommandMsg{Name: "/delete"} }
 		case tea.KeyRunes:
-			if string(msg.Runes) == "d" {
+			switch string(msg.Runes) {
+			case "d":
 				return m, func() tea.Msg { return CommandMsg{Name: "/delete"} }
+			case "k":
+				if m.cursor > 0 {
+					m.cursor--
+					m.selectedName = m.branches[m.cursor].Name
+				}
+			case "j":
+				if m.cursor < len(m.branches)-1 {
+					m.cursor++
+					m.selectedName = m.branches[m.cursor].Name
+				}
 			}
 		}
 	}
@@ -160,7 +173,7 @@ func (m BranchListModel) View() string {
 		var reposPlainParts []string
 		for _, r := range br.Repos {
 			if br.NonMasterRepos[r] {
-				reposPlainParts = append(reposPlainParts, r+"!")
+				reposPlainParts = append(reposPlainParts, "!"+r)
 			} else {
 				reposPlainParts = append(reposPlainParts, r)
 			}
@@ -170,7 +183,7 @@ func (m BranchListModel) View() string {
 		var reposStyledParts []string
 		for _, r := range br.Repos {
 			if br.NonMasterRepos[r] {
-				reposStyledParts = append(reposStyledParts, r+styleError.Render("!"))
+				reposStyledParts = append(reposStyledParts, styleError.Render("!")+r)
 			} else {
 				reposStyledParts = append(reposStyledParts, r)
 			}
@@ -275,7 +288,7 @@ func (m BranchListModel) HintView() string {
 	if len(m.branches) == 0 {
 		return styleHint.Render("  / command")
 	}
-	return styleHint.Render("  up/down navigate  ENTER update  d delete  / command")
+	return styleHint.Render("  j/k navigate  ENTER update  d delete  / command")
 }
 
 func indexOfBranchName(branches []core.FeatureBranch, name string) int {
