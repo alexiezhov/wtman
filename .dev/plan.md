@@ -4,7 +4,7 @@
 
 ### Design Principles
 
-- **Core / TUI separation**: `core/` is pure Go with no TUI dependency. All git, filesystem, and config logic lives here. `tui/` contains bubbletea models that call into `core/`.
+- **Core / TUI / CLI separation**: `core/` is pure Go with no TUI dependency. All git, filesystem, and config logic lives here. `tui/` contains bubbletea models that call into `core/`. `cli/` provides a non-interactive JSON-outputting interface that also calls into `core/`.
 - **Nested delegation with outcome messages**: each TUI sub-model (branchlist, reposelect, statusbar, prompt) is a self-contained widget. It accepts input when focused and emits typed outcome messages (e.g. `ReposSelectedMsg`, `CommandMsg`). The sub-models don't know who owns them.
 - **App as orchestrator**: `app.go` is purely a layout + routing orchestrator. It decides which widgets are visible, which one has focus, and how to react to their outcomes. Swapping from "sequential modes" to "side-by-side panels with Tab focus" later would only change `app.go`, not touch any sub-model.
 - **Blocking UI during operations**: long-running git operations (create, delete, update, rename) run as background `tea.Cmd`s. While running, a spinner is shown in the status bar and all input is blocked. Simple and safe -- no race conditions.
@@ -27,8 +27,12 @@ graph TD
         Spinner["spinner -- shown during operations"]
         Styles["styles.go -- ApplyColors from config"]
     end
-    Main["main.go -- CLI entry, load config, launch TUI"]
+    subgraph cliPkg ["cli/ (non-interactive, JSON output)"]
+        CLI["cli.go -- subcommand dispatch, JSON output"]
+    end
+    Main["main.go -- entry point, subcommand detection, launch TUI or CLI"]
     Main --> App
+    Main --> CLI
     App --> BranchList
     App --> RepoSelect
     App --> StatusBar
@@ -39,6 +43,9 @@ graph TD
     App --> Config
     App --> Watcher
     Styles --> Config
+    CLI --> Branch
+    CLI --> Repo
+    CLI --> Config
 ```
 
 ### Message Flow
@@ -65,7 +72,10 @@ sequenceDiagram
 wtman/
   go.mod
   go.sum
-  main.go              -- entry point, flag parsing, config load, start TUI
+  main.go              -- entry point, flag parsing, subcommand detection; launches TUI or CLI
+  cli/
+    cli.go             -- non-interactive CLI: subcommand dispatch (ls, repos, new, rm, update, mv, pull),
+                          JSON output to stdout, errors to stderr, per-command flag parsing
   core/
     config.go          -- Config struct, ColorsConfig struct, Load/Save, defaults
     repo.go            -- DiscoverRepos, IsGitRepo, RepoEntry
@@ -79,7 +89,7 @@ wtman/
     git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
-    branchlist.go      -- feature branch list: date | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, selection stability by name, dirty * and non-master ! markers
+    branchlist.go      -- feature branch list: date+time (YYYY-MM-DD HH:MM) | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, selection stability by name, dirty * and non-master ! markers
     reposelect.go      -- repo multi-select: up/down, Space toggle, fuzzy filter, ESC cancel/clear
     statusbar.go       -- / to enter command mode, fuzzy autocomplete, Tab/Up/Down cycling, ESC/Enter
     prompt.go          -- single-line text input (branch name, rename, confirmations)
@@ -123,6 +133,62 @@ File: `~/.config/wtman/config.json`
   - `separator` -- table separator lines
   - `selected_fg` -- selected row foreground
 
+## CLI Interface
+
+Non-interactive, JSON-outputting interface for scripting and Cursor skills. No subcommand launches the TUI (backward compatible).
+
+### Global Flags
+
+- `--config <path>` -- config file (default `~/.config/wtman/config.json`)
+- `-s`, `--source-dir` -- override source repos directory
+- `-t`, `--target-dir` -- override target branches directory
+- `-h` -- show usage
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `wtman ls` | List feature branches |
+| `wtman repos` | List available source repos |
+| `wtman new <branch> <repos> [-n]` | Create branch with worktrees (`-n` skips post hook) |
+| `wtman rm <branch> [-f]` | Delete branch (`-f` force even if dirty) |
+| `wtman update <branch> <repos> [-f]` | Set repos for branch (`-f` force dirty removal) |
+| `wtman mv <old> <new>` | Rename branch |
+| `wtman pull <branch>` | Pull all worktrees in branch |
+
+`<repos>` is a comma-separated list of repo names. Every subcommand supports `-h`.
+
+### Output Format
+
+All commands output JSON to stdout. Errors go to stderr as plain text with exit code 1.
+
+**`wtman ls`:**
+```json
+[{"name":"feat-x","date":"2026-03-15 14:30","repos":["auth","billing"],"path":"/b/feat-x","dirty":true,"non_master":["auth"]}]
+```
+
+The `date` field is the feature-branch directory modification time in local timezone, formatted as `YYYY-MM-DD HH:MM` (`core.BranchCreatedAtLayout`), same as the TUI Date column.
+
+**`wtman repos`:**
+```json
+[{"name":"auth-service","path":"/src/auth-service"}]
+```
+
+**`wtman new`:**
+```json
+{"branch":"feat-x","path":"/b/feat-x","repos":["auth","billing"]}
+```
+
+**`wtman rm`, `mv`, `pull`, `update` (success):**
+```json
+{"ok":true}
+```
+
+**`wtman update` (dirty worktrees, no `-f`):**
+```json
+{"error":"dirty","repos":["auth"]}
+```
+
 ## Branch Name Encoding
 
 Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by replacing `/` with `--` (e.g. directory `a--feat--add-field`). The git branch name itself uses the original `/` form. Encoding/decoding is handled by `BranchToDirName` / `DirNameToBranch` and is transparent to the user.
@@ -134,11 +200,11 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 ```
   WTMAN - worktree manager
 
-  Date       | Branch                  | Repos
-  -----------+-------------------------+-------------------------
-  2026-01-01 | rename-report-fields    | billing, report-engine
-  2026-03-15 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
-  2026-04-10 | fix-payment-rounding    | payment-gateway
+  Date             | Branch                  | Repos
+  -----------------+-------------------------+-------------------------
+  2026-01-01 09:15 | rename-report-fields    | billing, report-engine
+  2026-03-15 14:30 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
+  2026-04-10 18:45 | fix-payment-rounding    | payment-gateway
 
   j/k navigate  ENTER update  d delete  / command
 ```
@@ -150,7 +216,7 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 - `q` quits
 - Ctrl+C / Ctrl+D quits from any mode
 - Commands: `/new`, `/delete`, `/rename`, `/pull`, `/source-dir` (shows current), `/target-dir` (shows current), `/sort-by-name`, `/sort-by-date`
-- Table has a header row (Date | Branch | Repos) with a separator line
+- Table has a header row (Date | Branch | Repos) with a separator line; Date shows directory mtime to minute precision (`2006-01-02 15:04`, local time)
 - Repos column shows sorted repo names, truncated with `...` if they exceed available width
 - List auto-refreshes when watcher detects changes in target dir
 - Branch list dirty marker: red `*` after branch name for branches with uncommitted changes
@@ -163,11 +229,11 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 ```
   WTMAN - worktree manager
 
-  Date       | Branch                  | Repos
-  -----------+-------------------------+-------------------------
-  2026-01-01 | rename-report-fields    | billing, report-engine
-  2026-03-15 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
-  2026-04-10 | fix-payment-rounding    | payment-gateway
+  Date             | Branch                  | Repos
+  -----------------+-------------------------+-------------------------
+  2026-01-01 09:15 | rename-report-fields    | billing, report-engine
+  2026-03-15 14:30 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
+  2026-04-10 18:45 | fix-payment-rounding    | payment-gateway
 
   /ne_
    /new         /rename        /delete
@@ -237,9 +303,9 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
 ```
   WTMAN - worktree manager
 
-  Date       | Branch                  | Repos
+  Date             | Branch                  | Repos
   ...
-  2026-03-15 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
+  2026-03-15 14:30 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
   ...
 
   Delete "migrate-auth-service"? Removes worktrees & branches.
@@ -251,9 +317,9 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
 ```
   WTMAN - worktree manager
 
-  Date       | Branch                  | Repos
+  Date             | Branch                  | Repos
   ...
-  2026-03-15 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
+  2026-03-15 14:30 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
   ...
 
   Rename to: migrate-auth-v2_
@@ -265,7 +331,7 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
 ```
   WTMAN - worktree manager
 
-  Date       | Branch                  | Repos
+  Date             | Branch                  | Repos
   ...
 
   . Creating worktrees...

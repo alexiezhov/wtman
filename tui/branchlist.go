@@ -129,7 +129,7 @@ func (m BranchListModel) View() string {
 		return ""
 	}
 
-	dateW := 12
+	dateW := 16 // width for core.BranchCreatedAtLayout
 	branchW := 28
 	sepW := 3 // " | "
 	reposW := m.width - dateW - branchW - sepW*2 - 4
@@ -168,7 +168,7 @@ func (m BranchListModel) View() string {
 	start, end := scrollWindow(m.cursor, len(m.branches), maxRows)
 	for i := start; i < end; i++ {
 		br := m.branches[i]
-		date := br.CreatedAt.Format("2006-01-02")
+		date := br.CreatedAt.Format(core.BranchCreatedAtLayout)
 
 		var reposPlainParts []string
 		for _, r := range br.Repos {

@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// BranchCreatedAtLayout formats feature-branch creation time for CLI JSON and the TUI list (local time, minute precision).
+const BranchCreatedAtLayout = "2006-01-02 15:04"
+
 type FeatureBranch struct {
 	Name           string // git branch name (may contain /)
 	CreatedAt      time.Time

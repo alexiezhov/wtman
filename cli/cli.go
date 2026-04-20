@@ -53,7 +53,7 @@ func cmdLS(cfg core.Config, args []string) {
 		}
 		out = append(out, map[string]any{
 			"name":       b.Name,
-			"date":       b.CreatedAt.Format("2006-01-02"),
+			"date":       b.CreatedAt.Format(core.BranchCreatedAtLayout),
 			"repos":      b.Repos,
 			"path":       b.Path,
 			"dirty":      b.HasDirty,
