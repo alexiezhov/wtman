@@ -108,6 +108,10 @@ func (m BranchListModel) Update(msg tea.Msg) (BranchListModel, tea.Cmd) {
 			switch string(msg.Runes) {
 			case "d":
 				return m, func() tea.Msg { return CommandMsg{Name: "/delete"} }
+			case "o":
+				return m, func() tea.Msg { return CommandMsg{Name: "/open"} }
+			case "?":
+				return m, func() tea.Msg { return CommandMsg{Name: "/help"} }
 			case "k":
 				if m.cursor > 0 {
 					m.cursor--
@@ -286,9 +290,9 @@ func max(a, b int) int {
 
 func (m BranchListModel) HintView() string {
 	if len(m.branches) == 0 {
-		return styleHint.Render("  / command")
+		return styleHint.Render("  / command  ? help")
 	}
-	return styleHint.Render("  j/k navigate  ENTER update  d delete  / command")
+	return styleHint.Render("  j/k navigate  ENTER update  o open  d delete  / command  ? help")
 }
 
 func indexOfBranchName(branches []core.FeatureBranch, name string) int {

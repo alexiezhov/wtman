@@ -89,7 +89,7 @@ wtman/
     git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
-    branchlist.go      -- feature branch list: date+time (YYYY-MM-DD HH:MM) | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, selection stability by name, dirty * and non-master ! markers
+    branchlist.go      -- feature branch list: date+time (YYYY-MM-DD HH:MM) | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, o for open (post_command), ? for help, selection stability by name, dirty * and non-master ! markers
     reposelect.go      -- repo multi-select: up/down, Space toggle, fuzzy filter, ESC cancel/clear
     statusbar.go       -- / to enter command mode, fuzzy autocomplete, Tab/Up/Down cycling, ESC/Enter
     prompt.go          -- single-line text input (branch name, rename, confirmations)
@@ -206,12 +206,14 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
   2026-03-15 14:30 | migrate-auth-service    | auth, billing, paym...    <- highlighted bg
   2026-04-10 18:45 | fix-payment-rounding    | payment-gateway
 
-  j/k navigate  ENTER update  d delete  / command
+  j/k navigate  ENTER update  o open  d delete  / command  ? help
 ```
 
 - j/k or Up/Down to navigate; selected row has a highlighted background (full-width color band, no cursor character)
 - Enter on a selected branch enters Update Mode (Mode 2, pre-populated)
 - d, Backspace, or Delete on a selected branch triggers delete confirmation
+- `o` runs the post_command for the selected branch (same as after `new`)
+- `?` opens the help screen listing all shortcuts and commands
 - `/` opens command bar
 - `q` quits
 - Ctrl+C / Ctrl+D quits from any mode
@@ -309,7 +311,7 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   ...
 
   Delete "migrate-auth-service"? Removes worktrees & branches.
-  y confirm  n/ESC cancel
+  ENTER/y confirm  ESC/n cancel
 ```
 
 ### Rename Prompt (on `/rename`)
@@ -325,6 +327,36 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   Rename to: migrate-auth-v2_
   ENTER rename  ESC cancel
 ```
+
+### Help Screen (on `?`)
+
+```
+  WTMAN - worktree manager
+
+  Shortcuts
+
+  j / ↓           move down
+  k / ↑           move up
+  ENTER           update repos in selected branch
+  o               run post_command for selected branch
+  d / DEL         delete selected branch
+  / + command     command palette
+
+  Commands
+
+  /new            create a new feature branch
+  /delete         delete selected branch
+  /rename         rename selected branch
+  /pull           git pull in all worktrees of selected branch
+  /sort-by-date   sort branches by creation date
+  /sort-by-name   sort branches alphabetically
+  /source-dir     change source repos directory
+  /target-dir     change target (branches) directory
+
+  press any key to close
+```
+
+- Any key (including `?`, `q`, ESC, Enter) closes the help screen and returns to the branch list.
 
 ### Spinner During Operations
 

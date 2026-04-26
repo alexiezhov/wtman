@@ -90,6 +90,9 @@ func (m PromptModel) updateConfirm(msg tea.KeyMsg) (PromptModel, tea.Cmd) {
 	case tea.KeyEscape:
 		m.active = false
 		return m, func() tea.Msg { return ConfirmResultMsg{Confirmed: false} }
+	case tea.KeyEnter:
+		m.active = false
+		return m, func() tea.Msg { return ConfirmResultMsg{Confirmed: true} }
 	case tea.KeyRunes:
 		ch := string(msg.Runes)
 		if ch == "y" || ch == "Y" {
@@ -116,7 +119,7 @@ func (m PromptModel) View() string {
 		return line + "\n" + hint
 	case PromptConfirm:
 		line := fmt.Sprintf("  %s", m.label)
-		hint := styleHint.Render("  y confirm  n/ESC cancel")
+		hint := styleHint.Render("  ENTER/y confirm  ESC/n cancel")
 		return line + "\n" + hint
 	}
 	return ""

@@ -22,6 +22,7 @@ const (
 	modeTargetDirPrompt
 	modeDirtyConfirm
 	modeSpinner
+	modeHelp
 )
 
 type AppModel struct {
@@ -209,6 +210,9 @@ func (m AppModel) View() string {
 		return b.String()
 	case modeSpinner:
 		b.WriteString(m.branchList.View())
+	case modeHelp:
+		b.WriteString(m.helpView())
+		return b.String()
 	}
 
 	// Error
@@ -270,6 +274,13 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.branchList, cmd = m.branchList.Update(msg)
 		return m, cmd
 
+	case modeHelp:
+		if msg.Type == tea.KeyEsc || msg.Type == tea.KeyEnter ||
+			(msg.Type == tea.KeyRunes && (string(msg.Runes) == "q" || string(msg.Runes) == "?")) {
+			m.mode = modeBranchList
+		}
+		return m, nil
+
 	case modeRepoSelect:
 		var cmd tea.Cmd
 		m.repoSelect, cmd = m.repoSelect.Update(msg)
@@ -291,6 +302,11 @@ func (m AppModel) handleCommand(cmd CommandMsg) (tea.Model, tea.Cmd) {
 		return m.enterRenameMode()
 	case "/pull":
 		return m.runPull()
+	case "/open":
+		return m.runOpen()
+	case "/help":
+		m.mode = modeHelp
+		return m, nil
 	case "/source-dir":
 		m.mode = modeSourceDirPrompt
 		m.prompt = m.prompt.ActivateText(fmt.Sprintf("Source dir (%s):", m.cfg.SourceDir))
@@ -521,6 +537,24 @@ func (m AppModel) runRename(newName string) (tea.Model, tea.Cmd) {
 	)
 }
 
+func (m AppModel) runOpen() (tea.Model, tea.Cmd) {
+	br, ok := m.branchList.SelectedBranch()
+	if !ok {
+		return m, nil
+	}
+	if m.cfg.PostCommand == "" {
+		return m, m.setError("post_command is not configured")
+	}
+	branchDir := m.cfg.TargetDir + "/" + core.BranchToDirName(br.Name)
+	cfg := m.cfg
+	return m, func() tea.Msg {
+		if err := core.RunPostCommand(cfg.PostCommand, branchDir); err != nil {
+			return OperationDoneMsg{Err: fmt.Errorf("post_command: %w", err)}
+		}
+		return OperationDoneMsg{}
+	}
+}
+
 func (m AppModel) runPull() (tea.Model, tea.Cmd) {
 	br, ok := m.branchList.SelectedBranch()
 	if !ok {
@@ -537,6 +571,41 @@ func (m AppModel) runPull() (tea.Model, tea.Cmd) {
 			return OperationDoneMsg{Err: err}
 		},
 	)
+}
+
+func (m AppModel) helpView() string {
+	type entry struct{ key, desc string }
+	shortcuts := []entry{
+		{"j / ↓", "move down"},
+		{"k / ↑", "move up"},
+		{"ENTER", "update repos in selected branch"},
+		{"o", "run post_command for selected branch"},
+		{"d / DEL", "delete selected branch"},
+		{"/ + command", "command palette"},
+	}
+	commands := []entry{
+		{"/new", "create a new feature branch"},
+		{"/delete", "delete selected branch"},
+		{"/rename", "rename selected branch"},
+		{"/pull", "git pull in all worktrees of selected branch"},
+		{"/sort-by-date", "sort branches by creation date"},
+		{"/sort-by-name", "sort branches alphabetically"},
+		{"/source-dir", "change source repos directory"},
+		{"/target-dir", "change target (branches) directory"},
+	}
+
+	keyW := 16
+	var b strings.Builder
+	b.WriteString(styleHeader.Render("  Shortcuts") + "\n\n")
+	for _, e := range shortcuts {
+		b.WriteString("  " + styleCheckOn.Render(padRight(e.key, keyW)) + "  " + e.desc + "\n")
+	}
+	b.WriteString("\n" + styleHeader.Render("  Commands") + "\n\n")
+	for _, e := range commands {
+		b.WriteString("  " + styleCheckOn.Render(padRight(e.key, keyW)) + "  " + e.desc + "\n")
+	}
+	b.WriteString("\n" + styleHint.Render("  press any key to close") + "\n")
+	return b.String()
 }
 
 // --- Data loading commands ---
