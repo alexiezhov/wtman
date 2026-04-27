@@ -211,7 +211,7 @@ func PullFeatureBranch(targetDir, branch string) error {
 	var errs []string
 	for _, repoName := range repos {
 		wtPath := filepath.Join(branchDir, repoName)
-		if _, err := runGit(wtPath, "pull"); err != nil {
+		if _, err := runGit(wtPath, "pull", "--no-tags"); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", repoName, err))
 		}
 	}
