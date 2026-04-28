@@ -60,11 +60,10 @@ func IsGitRepo(path string) bool {
 }
 
 func IsWorktreeDirty(wtPath string) bool {
-	out, err := runGit(wtPath, "status", "--porcelain")
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(out) != ""
+	// diff-index only checks tracked files against the index, which is much
+	// faster than `status --porcelain` on large repos (no untracked scan).
+	_, err := runGit(wtPath, "diff-index", "--quiet", "HEAD")
+	return err != nil
 }
 
 func IsOnMainBranch(repoDir string) bool {

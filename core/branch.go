@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -42,42 +43,68 @@ func ListFeatureBranches(targetDir string) ([]FeatureBranch, error) {
 		return nil, err
 	}
 
-	var branches []FeatureBranch
+	candidates := make([]os.DirEntry, 0, len(entries))
 	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
-			continue
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			candidates = append(candidates, e)
 		}
-		branchDir := filepath.Join(targetDir, e.Name())
-		repos := ListReposOnDisk(branchDir)
-
-		info, _ := e.Info()
-		var created time.Time
-		if info != nil {
-			created = info.ModTime()
-		}
-
-		hasDirty := false
-		nonMaster := make(map[string]bool)
-		for _, repoName := range repos {
-			wtPath := filepath.Join(branchDir, repoName)
-			if IsWorktreeDirty(wtPath) {
-				hasDirty = true
-			}
-			mainRepo, err := mainRepoFromWorktree(wtPath)
-			if err == nil && !IsOnMainBranch(mainRepo) {
-				nonMaster[repoName] = true
-			}
-		}
-
-		branches = append(branches, FeatureBranch{
-			Name:           DirNameToBranch(e.Name()),
-			CreatedAt:      created,
-			Repos:          repos,
-			Path:           branchDir,
-			HasDirty:       hasDirty,
-			NonMasterRepos: nonMaster,
-		})
 	}
+
+	branches := make([]FeatureBranch, len(candidates))
+	var wg sync.WaitGroup
+	wg.Add(len(candidates))
+
+	for i, e := range candidates {
+		i, e := i, e
+		go func() {
+			defer wg.Done()
+			branchDir := filepath.Join(targetDir, e.Name())
+			repos := ListReposOnDisk(branchDir)
+
+			info, _ := e.Info()
+			var created time.Time
+			if info != nil {
+				created = info.ModTime()
+			}
+
+			hasDirty := false
+			nonMaster := make(map[string]bool)
+
+			var mu sync.Mutex
+			var repoWg sync.WaitGroup
+			repoWg.Add(len(repos))
+			for _, repoName := range repos {
+				repoName := repoName
+				go func() {
+					defer repoWg.Done()
+					wtPath := filepath.Join(branchDir, repoName)
+					dirty := IsWorktreeDirty(wtPath)
+					mainRepo, err := mainRepoFromWorktree(wtPath)
+					notMain := err == nil && !IsOnMainBranch(mainRepo)
+					mu.Lock()
+					if dirty {
+						hasDirty = true
+					}
+					if notMain {
+						nonMaster[repoName] = true
+					}
+					mu.Unlock()
+				}()
+			}
+			repoWg.Wait()
+
+			branches[i] = FeatureBranch{
+				Name:           DirNameToBranch(e.Name()),
+				CreatedAt:      created,
+				Repos:          repos,
+				Path:           branchDir,
+				HasDirty:       hasDirty,
+				NonMasterRepos: nonMaster,
+			}
+		}()
+	}
+	wg.Wait()
+
 	return branches, nil
 }
 

@@ -450,6 +450,14 @@ Called before UpdateFeatureBranch. Computes which repos would be removed by the 
 - Sends events on a channel when directory listing changes (new/removed entries)
 - Bubbletea subscribes via `tea.Cmd` that blocks on channel read; re-subscribes after each event
 
+## Performance
+
+### Parallel branch loading
+
+`ListFeatureBranches` runs several git subprocesses per repo (dirty check, non-master check) sequentially. With multiple branches and repos, startup can take several seconds.
+
+Fix: parallelize work across branches using goroutines + `sync.WaitGroup`. Each branch's repos are also checked in parallel. A `sync.Mutex` guards slice/map writes. This keeps the same external API and output order.
+
 ## Dependencies
 
 - `github.com/charmbracelet/bubbletea` -- TUI framework (Elm architecture)
