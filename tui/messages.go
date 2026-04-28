@@ -32,6 +32,10 @@ type DirtyWorktreesMsg struct {
 	DirtyRepos []string
 }
 
+type DirtyDeleteMsg struct {
+	DirtyRepos []string
+}
+
 type clearErrorMsg struct{}
 
 // Operation result messages

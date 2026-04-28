@@ -164,7 +164,7 @@ All commands output JSON to stdout. Errors go to stderr as plain text with exit 
 
 **`wtman ls`:**
 ```json
-[{"name":"feat-x","date":"2026-03-15 14:30","repos":["auth","billing"],"path":"/b/feat-x","dirty":true,"non_master":["auth"]}]
+[{"name":"feat-x","date":"2026-03-15 14:30","repos":["auth","billing"],"path":"/b/feat-x"}]
 ```
 
 The `date` field is the feature-branch directory modification time in local timezone, formatted as `YYYY-MM-DD HH:MM` (`core.BranchCreatedAtLayout`), same as the TUI Date column.
@@ -221,8 +221,7 @@ Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by rep
 - Table has a header row (Date | Branch | Repos) with a separator line; Date shows directory mtime to minute precision (`2006-01-02 15:04`, local time)
 - Repos column shows sorted repo names, truncated with `...` if they exceed available width
 - List auto-refreshes when watcher detects changes in target dir
-- Branch list dirty marker: red `*` after branch name for branches with uncommitted changes
-- Branch list non-master marker: red `!` before repo names whose source repo is not on master/main
+- Repo select non-master marker: red `!` before repo names whose source repo is not on master/main, shown in the repo selection list (Mode 2) so the user knows which repos will branch from a non-master base
 - Selection stability: on refresh, the currently selected branch is preserved by name
 - **Error display**: errors from any operation appear between the repo list and the status bar, styled in error color, auto-dismissed after 5 seconds. All errors are surfaced -- no swallowed errors.
 

@@ -1,0 +1,36 @@
+# Built binary (default: go build -o wtman .)
+/wtman
+
+# Go build / test artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Dependency directories (if used)
+vendor/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Cursor (local state; commit rules elsewhere if you need them in-repo)
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env overrides
+.env
+.env.*
+!.env.example

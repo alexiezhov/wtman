@@ -15,12 +15,10 @@ import (
 const BranchCreatedAtLayout = "2006-01-02 15:04"
 
 type FeatureBranch struct {
-	Name           string // git branch name (may contain /)
-	CreatedAt      time.Time
-	Repos          []string // sorted repo names
-	Path           string
-	HasDirty       bool
-	NonMasterRepos map[string]bool // repo names whose source repo is not on master/main
+	Name      string // git branch name (may contain /)
+	CreatedAt time.Time
+	Repos     []string // sorted repo names
+	Path      string
 }
 
 // BranchToDirName encodes a git branch name for use as a single directory name.
@@ -67,39 +65,11 @@ func ListFeatureBranches(targetDir string) ([]FeatureBranch, error) {
 				created = info.ModTime()
 			}
 
-			hasDirty := false
-			nonMaster := make(map[string]bool)
-
-			var mu sync.Mutex
-			var repoWg sync.WaitGroup
-			repoWg.Add(len(repos))
-			for _, repoName := range repos {
-				repoName := repoName
-				go func() {
-					defer repoWg.Done()
-					wtPath := filepath.Join(branchDir, repoName)
-					dirty := IsWorktreeDirty(wtPath)
-					mainRepo, err := mainRepoFromWorktree(wtPath)
-					notMain := err == nil && !IsOnMainBranch(mainRepo)
-					mu.Lock()
-					if dirty {
-						hasDirty = true
-					}
-					if notMain {
-						nonMaster[repoName] = true
-					}
-					mu.Unlock()
-				}()
-			}
-			repoWg.Wait()
-
 			branches[i] = FeatureBranch{
-				Name:           DirNameToBranch(e.Name()),
-				CreatedAt:      created,
-				Repos:          repos,
-				Path:           branchDir,
-				HasDirty:       hasDirty,
-				NonMasterRepos: nonMaster,
+				Name:      DirNameToBranch(e.Name()),
+				CreatedAt: created,
+				Repos:     repos,
+				Path:      branchDir,
 			}
 		}()
 	}
@@ -272,6 +242,18 @@ func PullSourceRepos(sourceDir string, scanDepth int) error {
 		return fmt.Errorf("pull failed:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return nil
+}
+
+// DirtyBranchWorktrees returns the names of all dirty worktrees in a feature branch.
+func DirtyBranchWorktrees(branch, targetDir string) []string {
+	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
+	var dirty []string
+	for _, name := range ListReposOnDisk(branchDir) {
+		if IsWorktreeDirty(filepath.Join(branchDir, name)) {
+			dirty = append(dirty, name)
+		}
+	}
+	return dirty
 }
 
 func DirtyRemovedWorktrees(repos []RepoEntry, branch, targetDir string) []string {

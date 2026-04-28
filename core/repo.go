@@ -5,11 +5,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type RepoEntry struct {
-	Name string
-	Path string
+	Name      string
+	Path      string
+	NonMaster bool // source repo's current branch is not master/main
 }
 
 func DiscoverRepos(sourceDir string, maxDepth int) ([]RepoEntry, error) {
@@ -74,4 +76,23 @@ func DiscoverRepos(sourceDir string, maxDepth int) ([]RepoEntry, error) {
 		return strings.ToLower(repos[i].Name) < strings.ToLower(repos[j].Name)
 	})
 	return repos, nil
+}
+
+// AnnotateNonMaster checks each repo's current branch in parallel and sets
+// NonMaster=true for repos not on master/main. Call this only when the result
+// is displayed to the user (repo select screen), not on every DiscoverRepos call.
+func AnnotateNonMaster(repos []RepoEntry) []RepoEntry {
+	annotated := make([]RepoEntry, len(repos))
+	copy(annotated, repos)
+	var wg sync.WaitGroup
+	wg.Add(len(annotated))
+	for i := range annotated {
+		i := i
+		go func() {
+			defer wg.Done()
+			annotated[i].NonMaster = !IsOnMainBranch(annotated[i].Path)
+		}()
+	}
+	wg.Wait()
+	return annotated
 }

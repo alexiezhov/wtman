@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hibobio/wtman/core"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/hibobio/wtman/core"
 )
 
 type mode int
@@ -17,6 +17,7 @@ const (
 	modeRepoSelect
 	modeBranchNamePrompt
 	modeDeleteConfirm
+	modeDirtyDeleteConfirm
 	modeRenamePrompt
 	modeSourceDirPrompt
 	modeTargetDirPrompt
@@ -157,6 +158,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prompt = m.prompt.ActivateConfirm(label)
 		return m, nil
 
+	case DirtyDeleteMsg:
+		if len(msg.DirtyRepos) == 0 {
+			return m.runDelete(false)
+		}
+		m.mode = modeDirtyDeleteConfirm
+		label := fmt.Sprintf("Dirty worktrees: %s. Delete anyway? (uncommitted changes will be lost)", strings.Join(msg.DirtyRepos, ", "))
+		m.prompt = m.prompt.ActivateConfirm(label)
+		return m, nil
+
 	case ReposCancelledMsg:
 		m.mode = modeBranchList
 		return m, nil
@@ -178,6 +188,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.loadBranches
 		}
 		return m, tea.Batch(cmd, waitForWatchEvent(m.watcher.Events()))
+
 	}
 
 	return m, nil
@@ -199,7 +210,7 @@ func (m AppModel) View() string {
 
 	// Main content
 	switch m.mode {
-	case modeBranchList, modeDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
+	case modeBranchList, modeDeleteConfirm, modeDirtyDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
 		b.WriteString(m.branchList.View())
 	case modeRepoSelect:
 		b.WriteString(m.repoSelect.View())
@@ -225,7 +236,7 @@ func (m AppModel) View() string {
 	switch m.mode {
 	case modeSpinner:
 		b.WriteString("  " + m.spinner.View() + " " + m.spinnerMsg + "\n")
-	case modeDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
+	case modeDeleteConfirm, modeDirtyDeleteConfirm, modeDirtyConfirm, modeRenamePrompt, modeSourceDirPrompt, modeTargetDirPrompt:
 		b.WriteString(m.prompt.View() + "\n")
 	case modeRepoSelect:
 		if fv := m.repoSelect.FilterView(); fv != "" {
@@ -329,10 +340,10 @@ func (m AppModel) enterNewMode() (tea.Model, tea.Cmd) {
 	m.isNewFlow = true
 	m.mode = modeRepoSelect
 	repos, err := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
-	m.repoSelect = m.repoSelect.Activate(repos, nil, false, "new feature branch")
 	if err != nil {
 		return m, m.setError(err.Error())
 	}
+	m.repoSelect = m.repoSelect.Activate(core.AnnotateNonMaster(repos), nil, false, "new feature branch")
 	return m, nil
 }
 
@@ -341,10 +352,10 @@ func (m AppModel) enterUpdateMode(branch core.FeatureBranch) (tea.Model, tea.Cmd
 	m.pendingBranch = branch.Name
 	m.mode = modeRepoSelect
 	repos, err := core.DiscoverRepos(m.cfg.SourceDir, m.cfg.ScanDepth)
-	m.repoSelect = m.repoSelect.Activate(repos, branch.Repos, true, "update "+branch.Name)
 	if err != nil {
 		return m, m.setError(err.Error())
 	}
+	m.repoSelect = m.repoSelect.Activate(core.AnnotateNonMaster(repos), branch.Repos, true, "update "+branch.Name)
 	return m, nil
 }
 
@@ -438,7 +449,9 @@ func (m AppModel) handleConfirmResult(msg ConfirmResultMsg) (tea.Model, tea.Cmd)
 	}
 	switch m.mode {
 	case modeDeleteConfirm:
-		return m.runDelete()
+		return m.checkDirtyBeforeDelete()
+	case modeDirtyDeleteConfirm:
+		return m.runDelete(true)
 	case modeDirtyConfirm:
 		return m.runUpdate(true)
 	}
@@ -509,7 +522,16 @@ func (m AppModel) runUpdate(forceRemove bool) (tea.Model, tea.Cmd) {
 	)
 }
 
-func (m AppModel) runDelete() (tea.Model, tea.Cmd) {
+func (m AppModel) checkDirtyBeforeDelete() (tea.Model, tea.Cmd) {
+	branch := m.pendingBranch
+	targetDir := m.cfg.TargetDir
+	return m, func() tea.Msg {
+		dirty := core.DirtyBranchWorktrees(branch, targetDir)
+		return DirtyDeleteMsg{DirtyRepos: dirty}
+	}
+}
+
+func (m AppModel) runDelete(force bool) (tea.Model, tea.Cmd) {
 	m.mode = modeSpinner
 	m.spinnerMsg = "Deleting feature branch..."
 	branch := m.pendingBranch
@@ -517,7 +539,7 @@ func (m AppModel) runDelete() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(
 		m.spinner.Tick,
 		func() tea.Msg {
-			err := core.DeleteFeatureBranch(targetDir, branch, true)
+			err := core.DeleteFeatureBranch(targetDir, branch, force)
 			return OperationDoneMsg{Err: err}
 		},
 	)

@@ -219,14 +219,22 @@ func (m RepoSelectModel) View() string {
 				if m.selected[r.Name] {
 					check = "[x]"
 				}
-				line := fmt.Sprintf("  %s %s", check, r.Name)
+				name := r.Name
+				if r.NonMaster {
+					name = styleError.Render("!") + name
+				}
+				line := fmt.Sprintf("  %s %s", check, name)
 				b.WriteString(styleSelectedRow.Width(m.width).Render(line) + "\n")
 			} else {
 				check := styleCheckOff.Render("[ ]")
 				if m.selected[r.Name] {
 					check = styleCheckOn.Render("[x]")
 				}
-				line := fmt.Sprintf("  %s %s", check, r.Name)
+				name := r.Name
+				if r.NonMaster {
+					name = styleError.Render("!") + name
+				}
+				line := fmt.Sprintf("  %s %s", check, name)
 				b.WriteString(line + "\n")
 			}
 		}

@@ -47,17 +47,11 @@ func cmdLS(cfg core.Config, args []string) {
 
 	out := make([]map[string]any, 0, len(branches))
 	for _, b := range branches {
-		nm := make([]string, 0, len(b.NonMasterRepos))
-		for k := range b.NonMasterRepos {
-			nm = append(nm, k)
-		}
 		out = append(out, map[string]any{
-			"name":       b.Name,
-			"date":       b.CreatedAt.Format(core.BranchCreatedAtLayout),
-			"repos":      b.Repos,
-			"path":       b.Path,
-			"dirty":      b.HasDirty,
-			"non_master": nm,
+			"name":  b.Name,
+			"date":  b.CreatedAt.Format(core.BranchCreatedAtLayout),
+			"repos": b.Repos,
+			"path":  b.Path,
 		})
 	}
 	jsonOut(out)

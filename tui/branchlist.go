@@ -174,49 +174,27 @@ func (m BranchListModel) View() string {
 		br := m.branches[i]
 		date := br.CreatedAt.Format(core.BranchCreatedAtLayout)
 
-		var reposPlainParts []string
-		for _, r := range br.Repos {
-			if br.NonMasterRepos[r] {
-				reposPlainParts = append(reposPlainParts, "!"+r)
-			} else {
-				reposPlainParts = append(reposPlainParts, r)
-			}
-		}
-		reposPlain := truncate(strings.Join(reposPlainParts, ", "), reposW)
-
-		var reposStyledParts []string
-		for _, r := range br.Repos {
-			if br.NonMasterRepos[r] {
-				reposStyledParts = append(reposStyledParts, styleError.Render("!")+r)
-			} else {
-				reposStyledParts = append(reposStyledParts, r)
-			}
-		}
-		reposStyled := truncate(strings.Join(reposStyledParts, ", "), reposW)
+		reposStyled := truncate(strings.Join(br.Repos, ", "), reposW)
 
 		dateCol := padRight(date, dateW)
 
 		if i == m.cursor {
-			branchDisplay := br.Name
-			if br.HasDirty {
-				branchDisplay = br.Name + " *"
-			}
-			row := styleSelectedRow.Width(m.width).Render(
-				"  " + padRight(date, dateW) + " \u2502 " +
-					padRight(branchDisplay, branchW) + " \u2502 " +
-					padRight(reposPlain, reposW))
+			selPlain := styleSelectedRow.Render
+
+			reposSelStr := selPlain(truncate(strings.Join(br.Repos, ", "), reposW))
+
+			selSep := styleSelectedRow.Copy().Foreground(lipgloss.Color("240")).Render(" \u2502 ")
+			// Pad the repos column to fill remaining width so the background band is full-width.
+			usedW := 2 + dateW + 3 + branchW + 3 + reposW
+			trailingW := max(0, m.width-usedW)
+			reposColSel := padRightStyledWidth(reposSelStr, reposW+trailingW, selPlain)
+			row := selPlain("  "+padRight(date, dateW)) + selSep + selPlain(padRight(br.Name, branchW)) + selSep + reposColSel
 			b.WriteString(row + "\n")
 			continue
 		}
 
-		var branchCol string
-		if br.HasDirty {
-			branchCol = padRight(br.Name, branchW-2) + styleError.Render(" *")
-		} else {
-			branchCol = padRight(br.Name, branchW)
-		}
 		reposCol := padRightWidth(reposStyled, reposW)
-		row := "  " + dateCol + sep + branchCol + sep + reposCol
+		row := "  " + dateCol + sep + padRight(br.Name, branchW) + sep + reposCol
 		b.WriteString(row + "\n")
 	}
 
@@ -313,4 +291,14 @@ func padRightWidth(s string, w int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", w-n)
+}
+
+// padRightStyledWidth pads s to visual width w by appending spaces rendered
+// through the provided style function, so the background color extends fully.
+func padRightStyledWidth(s string, w int, styleFn func(...string) string) string {
+	n := lipgloss.Width(s)
+	if n >= w {
+		return s
+	}
+	return s + styleFn(strings.Repeat(" ", w-n))
 }
