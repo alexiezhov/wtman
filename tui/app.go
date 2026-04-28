@@ -556,18 +556,14 @@ func (m AppModel) runOpen() (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) runPull() (tea.Model, tea.Cmd) {
-	br, ok := m.branchList.SelectedBranch()
-	if !ok {
-		return m, nil
-	}
 	m.mode = modeSpinner
-	m.spinnerMsg = "Pulling remote changes..."
-	branch := br.Name
-	targetDir := m.cfg.TargetDir
+	m.spinnerMsg = "Pulling source repos..."
+	sourceDir := m.cfg.SourceDir
+	scanDepth := m.cfg.ScanDepth
 	return m, tea.Batch(
 		m.spinner.Tick,
 		func() tea.Msg {
-			err := core.PullFeatureBranch(targetDir, branch)
+			err := core.PullSourceRepos(sourceDir, scanDepth)
 			return OperationDoneMsg{Err: err}
 		},
 	)
@@ -587,7 +583,7 @@ func (m AppModel) helpView() string {
 		{"/new", "create a new feature branch"},
 		{"/delete", "delete selected branch"},
 		{"/rename", "rename selected branch"},
-		{"/pull", "git pull in all worktrees of selected branch"},
+		{"/pull", "git pull --no-tags all repos in source-dir"},
 		{"/sort-by-date", "sort branches by creation date"},
 		{"/sort-by-name", "sort branches alphabetically"},
 		{"/source-dir", "change source repos directory"},

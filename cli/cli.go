@@ -197,16 +197,12 @@ func cmdMV(cfg core.Config, args []string) {
 func cmdPull(cfg core.Config, args []string) {
 	fs := flag.NewFlagSet("pull", flag.ExitOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: wtman pull <branch>")
+		fmt.Fprintln(os.Stderr, "Usage: wtman pull")
 		os.Exit(0)
 	}
 	fs.Parse(args)
 
-	if fs.NArg() < 1 {
-		fs.Usage()
-	}
-
-	if err := core.PullFeatureBranch(cfg.TargetDir, fs.Arg(0)); err != nil {
+	if err := core.PullSourceRepos(cfg.SourceDir, cfg.ScanDepth); err != nil {
 		die(err.Error())
 	}
 	jsonOut(map[string]any{"ok": true})

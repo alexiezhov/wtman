@@ -83,7 +83,7 @@ wtman/
                           ListFeatureBranches (computes dirty/non-master status per repo),
                           CreateWorktrees, DeleteFeatureBranch, RenameFeatureBranch,
                           UpdateFeatureBranch (forceRemove flag), DirtyRemovedWorktrees,
-                          PullFeatureBranch (git pull all worktrees)
+                          PullSourceRepos (git pull --no-tags all repos under source_dir; parallel; skips detached HEAD and uninitialized submodules)
     workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
     git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
@@ -154,7 +154,7 @@ Non-interactive, JSON-outputting interface for scripting and Cursor skills. No s
 | `wtman rm <branch> [-f]` | Delete branch (`-f` force even if dirty) |
 | `wtman update <branch> <repos> [-f]` | Set repos for branch (`-f` force dirty removal) |
 | `wtman mv <old> <new>` | Rename branch |
-| `wtman pull <branch>` | Pull all worktrees in branch |
+| `wtman pull` | Pull all repos under `source_dir` (`git pull --no-tags` on each repo's current branch) |
 
 `<repos>` is a comma-separated list of repo names. Every subcommand supports `-h`.
 
@@ -347,7 +347,7 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   /new            create a new feature branch
   /delete         delete selected branch
   /rename         rename selected branch
-  /pull           git pull in all worktrees of selected branch
+  /pull           git pull --no-tags all repos in source-dir
   /sort-by-date   sort branches by creation date
   /sort-by-name   sort branches alphabetically
   /source-dir     change source repos directory
@@ -435,6 +435,14 @@ Called before UpdateFeatureBranch. Computes which repos would be removed by the 
 2. If no dirty repos → proceeds with `forceRemove=false`
 3. If dirty repos found → shows confirmation: "Dirty worktrees: X, Y. Force remove? (uncommitted changes will be lost)"
 4. On confirm → `forceRemove=true`; on deny → back to branch list
+
+### PullSourceRepos(sourceDir string, scanDepth int) error
+
+1. `DiscoverRepos(sourceDir, scanDepth)` for the repo list
+2. For each repo, run `git pull --no-tags` in parallel (goroutine per repo)
+3. **Skip** repos where `HEAD` is detached (`rev-parse --abbrev-ref HEAD` returns `HEAD`) — linked worktrees, not the main checkout
+4. **Skip** repos whose directory contains only `.git` (no checked-out files) — uninitialized submodules; pulling would dirty the index without a checkout
+5. Collect per-repo errors, sort messages, return a combined error if any failed
 
 ### DirWatcher
 

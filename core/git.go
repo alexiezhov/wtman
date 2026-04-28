@@ -68,12 +68,36 @@ func IsWorktreeDirty(wtPath string) bool {
 }
 
 func IsOnMainBranch(repoDir string) bool {
-	out, err := runGit(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+	branch, err := CurrentBranch(repoDir)
 	if err != nil {
 		return true
 	}
-	branch := strings.TrimSpace(out)
 	return branch == "main" || branch == "master"
+}
+
+func CurrentBranch(repoDir string) (string, error) {
+	out, err := runGit(repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+// hasCheckedOutFiles returns false when the working tree has no files —
+// only a .git entry exists. This identifies uninitialized submodules where
+// pulling would update the index without checking out any files, leaving
+// every tracked file appearing as deleted.
+func hasCheckedOutFiles(repoDir string) bool {
+	entries, err := os.ReadDir(repoDir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Name() != ".git" {
+			return true
+		}
+	}
+	return false
 }
 
 var gitdirRe = regexp.MustCompile(`(?m)^gitdir:\s*(.+)$`)

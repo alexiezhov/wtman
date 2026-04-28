@@ -204,18 +204,44 @@ func RenameFeatureBranch(targetDir, oldName, newName string) error {
 	return os.Rename(oldDir, newDir)
 }
 
-func PullFeatureBranch(targetDir, branch string) error {
-	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
-	repos := ListReposOnDisk(branchDir)
+func PullSourceRepos(sourceDir string, scanDepth int) error {
+	repos, err := DiscoverRepos(sourceDir, scanDepth)
+	if err != nil {
+		return err
+	}
+
+	type result struct {
+		name string
+		err  error
+	}
+	ch := make(chan result, len(repos))
+
+	for _, repo := range repos {
+		go func(r RepoEntry) {
+			branch, err := CurrentBranch(r.Path)
+			if err != nil || branch == "HEAD" {
+				// detached HEAD = linked worktree; skip
+				ch <- result{}
+				return
+			}
+			if !hasCheckedOutFiles(r.Path) {
+				// uninitialized submodule — pulling would dirty the index; skip
+				ch <- result{}
+				return
+			}
+			_, err = runGit(r.Path, "pull", "--no-tags")
+			ch <- result{r.Name, err}
+		}(repo)
+	}
 
 	var errs []string
-	for _, repoName := range repos {
-		wtPath := filepath.Join(branchDir, repoName)
-		if _, err := runGit(wtPath, "pull", "--no-tags"); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", repoName, err))
+	for range repos {
+		if r := <-ch; r.err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", r.name, r.err))
 		}
 	}
 	if len(errs) > 0 {
+		sort.Strings(errs)
 		return fmt.Errorf("pull failed:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return nil
