@@ -134,7 +134,7 @@ func (m BranchListModel) View() string {
 	}
 
 	dateW := 16 // width for core.BranchCreatedAtLayout
-	branchW := 28
+	branchW := 60
 	sepW := 3 // " | "
 	reposW := m.width - dateW - branchW - sepW*2 - 4
 	if reposW < 10 {
