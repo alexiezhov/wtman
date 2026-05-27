@@ -35,6 +35,7 @@ type Config struct {
 	TargetDir   string       `json:"target_dir"`
 	PostCommand string       `json:"post_command"`
 	ScanDepth   int          `json:"scan_depth"`
+	LogLevel    string       `json:"log_level,omitempty"`
 	Colors      ColorsConfig `json:"colors,omitempty"`
 }
 
@@ -52,6 +53,7 @@ func DefaultConfig() Config {
 		TargetDir:   "",
 		PostCommand: "tmux split-window -h 'cd {{dir}} && cursor --agent'",
 		ScanDepth:   1,
+		LogLevel:    LogLevelInfo,
 		Colors:      DefaultColors(),
 	}
 }
@@ -73,6 +75,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if cfg.ScanDepth < 1 {
 		cfg.ScanDepth = 1
+	}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = DefaultConfig().LogLevel
 	}
 	cfg.Colors = mergeColors(cfg.Colors, DefaultColors())
 	return cfg, nil

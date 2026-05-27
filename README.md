@@ -41,12 +41,14 @@ Config file: `~/.config/wtman/config.json`
   "source_dir": "/path/to/repos",
   "target_dir": "/path/to/branches",
   "post_command": "agent {{dir}}",
-  "scan_depth": 1
+  "scan_depth": 1,
+  "log_level": "info"
 }
 ```
 
 - `source_dir` — directory containing your git repositories
 - `target_dir` — directory where feature branch worktrees are created
+- `log_level` — logging verbosity: `debug`, `info`, `warn`, `error`, or `off` (default `info`). Logs are written to stderr.
 - `post_command` — shell command run after worktrees are created; `{{dir}}` is replaced with the branch directory path. For example:
   - `"open workspace.code-workspace"` - opens workspace in Cursor IDE
   - `"tmux split-window -h \"zsh -c 'cd {{dir}} && tmux select-pane -T \\\"${PWD##*/}\\\"; cursor-watcher agent; exec zsh'\""` - runs Cursor CLI with Cursor Approval Watcher (see below) in a new tmux pane
@@ -72,7 +74,15 @@ wtman mv <old> <new>              # Rename branch
 wtman pull                        # Pull all repos under source_dir
 ```
 
+Enable verbose logging:
+
+```bash
+wtman -v ls                       # debug logs on stderr
+wtman --log-level warn new feat-x auth,billing
+```
+
 ---
+
 
 ## Cursor Approval Watcher
 

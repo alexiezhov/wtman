@@ -78,6 +78,7 @@ wtman/
                           JSON output to stdout, errors to stderr, per-command flag parsing
   core/
     config.go          -- Config struct, ColorsConfig struct, Load/Save, defaults
+    log.go             -- slog setup, ParseLogLevel, InitLogger (stderr; does not interfere with CLI JSON stdout)
     repo.go            -- DiscoverRepos, IsGitRepo, RepoEntry
     branch.go          -- FeatureBranch (incl. HasDirty, NonMasterRepos), BranchToDirName/DirNameToBranch,
                           ListFeatureBranches (computes dirty/non-master status per repo),
@@ -107,6 +108,7 @@ File: `~/.config/wtman/config.json`
   "target_dir": "/path/to/branches",
   "post_command": "tmux split-window -h 'cd {{dir}} && cursor --agent'",
   "scan_depth": 1,
+  "log_level": "info",
   "colors": {
     "title": "99",
     "success": "48",
@@ -123,6 +125,7 @@ File: `~/.config/wtman/config.json`
 - `source_dir` / `target_dir` -- overridable at runtime via `/source-dir` and `/target-dir` commands (persisted to config); prompt shows current value
 - `post_command` -- shell command run after worktrees are created; `{{dir}}` is replaced with the feature branch directory path
 - `scan_depth` -- how deep to look for git repos in source dir
+- `log_level` -- application log verbosity: `debug`, `info`, `warn`, `error`, or `off` (default `info`). Logs go to stderr so CLI JSON on stdout stays clean. Overridable via `--log-level` / `-v` (debug) on the CLI.
 - `colors` -- ANSI 256-color codes for all UI elements; omitted fields fall back to defaults. Field names are functional:
   - `title` -- title bar, spinner
   - `success` -- [x] checkmarks
@@ -143,6 +146,8 @@ Non-interactive, JSON-outputting interface for scripting and Cursor skills. No s
 - `-s`, `--source-dir` -- override source repos directory
 - `-t`, `--target-dir` -- override target branches directory
 - `-h` -- show usage
+- `--log-level <level>` -- override config log level (`debug`, `info`, `warn`, `error`, `off`)
+- `-v` -- shorthand for `--log-level debug`
 
 ### Commands
 

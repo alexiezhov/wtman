@@ -1,6 +1,7 @@
 package core
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -75,6 +76,7 @@ func DiscoverRepos(sourceDir string, maxDepth int) ([]RepoEntry, error) {
 	sort.Slice(repos, func(i, j int) bool {
 		return strings.ToLower(repos[i].Name) < strings.ToLower(repos[j].Name)
 	})
+	slog.Debug("discovered repos", "source", sourceDir, "count", len(repos), "scan_depth", maxDepth)
 	return repos, nil
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,6 +24,8 @@ func main() {
 	targetDir := flag.String("target-dir", "", "override target directory")
 	shortTarget := flag.String("t", "", "override target directory (short)")
 	showHelp := flag.Bool("h", false, "show help")
+	logLevel := flag.String("log-level", "", "log level: debug, info, warn, error, off")
+	verbose := flag.Bool("v", false, "shorthand for --log-level debug")
 	flag.Parse()
 
 	if *showHelp && flag.NArg() == 0 {
@@ -35,6 +38,26 @@ func main() {
 		fmt.Fprintf(os.Stderr, "wtman: failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+
+	levelName := cfg.LogLevel
+	if *logLevel != "" {
+		levelName = *logLevel
+	}
+	if *verbose {
+		levelName = core.LogLevelDebug
+	}
+	level, err := core.ParseLogLevel(levelName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wtman: %v\n", err)
+		os.Exit(1)
+	}
+	core.InitLogger(level, os.Stderr)
+	slog.Debug("wtman starting",
+		"config", *cfgPath,
+		"log_level", core.NormalizeLogLevel(levelName),
+		"source_dir", cfg.SourceDir,
+		"target_dir", cfg.TargetDir,
+	)
 
 	src := coalesce(*sourceDir, *shortSource)
 	tgt := coalesce(*targetDir, *shortTarget)
@@ -93,6 +116,8 @@ Global flags:
   --config <path>   Config file (default ~/.config/wtman/config.json)
   -s, --source-dir  Source repos directory
   -t, --target-dir  Target branches directory
+  --log-level       Log level: debug, info, warn, error, off (default from config)
+  -v                Shorthand for --log-level debug
   -h                Show this help
 
 <repos> is a comma-separated list of repo names.

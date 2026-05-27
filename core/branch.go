@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,6 +113,7 @@ func CreateWorktrees(sourceDir string, repos []RepoEntry, branch, targetDir stri
 	if err := SanitizeBranchName(branch); err != nil {
 		return err
 	}
+	slog.Info("create worktrees", "branch", branch, "repos", len(repos), "target", targetDir)
 	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
 	if err := os.MkdirAll(branchDir, 0o755); err != nil {
 		return err
@@ -121,12 +123,14 @@ func CreateWorktrees(sourceDir string, repos []RepoEntry, branch, targetDir stri
 	for _, repo := range repos {
 		wtPath := filepath.Join(branchDir, repo.Name)
 		if err := addWorktree(repo.Path, branch, wtPath); err != nil {
+			slog.Warn("worktree add failed", "repo", repo.Name, "error", err)
 			errs = append(errs, fmt.Sprintf("%s: %v", repo.Name, err))
 		}
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("failed repos:\n  %s", strings.Join(errs, "\n  "))
 	}
+	slog.Info("create worktrees done", "branch", branch)
 	return nil
 }
 
@@ -134,6 +138,7 @@ func RunPostCommand(postCmd, branchDir string) error {
 	if postCmd == "" {
 		return nil
 	}
+	slog.Info("run post command", "dir", branchDir)
 	expanded := strings.ReplaceAll(postCmd, "{{dir}}", branchDir)
 	cmd := execCommand("sh", "-c", expanded)
 	cmd.Dir = branchDir
@@ -146,6 +151,7 @@ func DeleteFeatureBranch(targetDir, branch string, force bool) error {
 	if err := SanitizeBranchName(branch); err != nil {
 		return err
 	}
+	slog.Info("delete feature branch", "branch", branch, "force", force)
 	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
 	repos := ListReposOnDisk(branchDir)
 
@@ -176,6 +182,7 @@ func DeleteFeatureBranch(targetDir, branch string, force bool) error {
 		_, _ = runGit(mainRepo, "branch", deleteFlag, branch)
 	}
 
+	slog.Info("delete feature branch done", "branch", branch)
 	return os.RemoveAll(branchDir)
 }
 
@@ -183,6 +190,7 @@ func RenameFeatureBranch(targetDir, oldName, newName string) error {
 	if err := SanitizeBranchName(newName); err != nil {
 		return err
 	}
+	slog.Info("rename feature branch", "from", oldName, "to", newName)
 	oldDir := filepath.Join(targetDir, BranchToDirName(oldName))
 	newDir := filepath.Join(targetDir, BranchToDirName(newName))
 
@@ -198,10 +206,12 @@ func RenameFeatureBranch(targetDir, oldName, newName string) error {
 		}
 	}
 
+	slog.Info("rename feature branch done", "from", oldName, "to", newName)
 	return os.Rename(oldDir, newDir)
 }
 
 func PullSourceRepos(sourceDir string, scanDepth int) error {
+	slog.Info("pull source repos", "source", sourceDir, "scan_depth", scanDepth)
 	repos, err := DiscoverRepos(sourceDir, scanDepth)
 	if err != nil {
 		return err
@@ -218,11 +228,13 @@ func PullSourceRepos(sourceDir string, scanDepth int) error {
 			branch, err := CurrentBranch(r.Path)
 			if err != nil || branch == "HEAD" {
 				// detached HEAD = linked worktree; skip
+				slog.Debug("pull skip", "repo", r.Name, "reason", "detached HEAD")
 				ch <- result{}
 				return
 			}
 			if !hasCheckedOutFiles(r.Path) {
 				// uninitialized submodule — pulling would dirty the index; skip
+				slog.Debug("pull skip", "repo", r.Name, "reason", "uninitialized submodule")
 				ch <- result{}
 				return
 			}
@@ -279,6 +291,7 @@ func DirtyRemovedWorktrees(repos []RepoEntry, branch, targetDir string) []string
 }
 
 func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir string, forceRemove bool) error {
+	slog.Info("update feature branch", "branch", branch, "repos", len(repos), "force_remove", forceRemove)
 	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
 	current := ListReposOnDisk(branchDir)
 

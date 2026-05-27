@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 )
 
 func runGit(repoDir string, args ...string) (string, error) {
+	slog.Debug("git", "repo", filepath.Base(repoDir), "args", strings.Join(args, " "))
 	cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)
 	cmd.Env = append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0",
