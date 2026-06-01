@@ -49,8 +49,8 @@ Config file: `~/.config/wtman/config.json`
 - `source_dir` — directory containing your git repositories
 - `target_dir` — directory where feature branch worktrees are created
 - `log_level` — logging verbosity: `debug`, `info`, `warn`, `error`, or `off` (default `info`). Logs are written to stderr.
-- `post_command` — shell command run after worktrees are created; `{{dir}}` is replaced with the branch directory path. For example:
-  - `"open workspace.code-workspace"` - opens workspace in Cursor IDE
+- `post_command` — shell command run after worktrees are created; `{{dir}}` is replaced with the branch directory path, and `{{workspace}}` with the absolute path to the generated `.code-workspace` file. For example:
+  - `"open {{workspace}}"` - opens workspace in Cursor IDE
   - `"tmux split-window -h \"zsh -c 'cd {{dir}} && tmux select-pane -T \\\"${PWD##*/}\\\"; cursor-watcher agent; exec zsh'\""` - runs Cursor CLI with Cursor Approval Watcher (see below) in a new tmux pane
 - `scan_depth` — how deep to look for git repos in source dir
 
