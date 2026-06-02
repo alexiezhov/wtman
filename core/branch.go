@@ -140,6 +140,7 @@ func RunPostCommand(postCmd, branchDir string) error {
 	}
 	slog.Info("run post command", "dir", branchDir)
 	expanded := strings.ReplaceAll(postCmd, "{{dir}}", branchDir)
+	expanded = strings.ReplaceAll(expanded, "{{workspace}}", filepath.Join(branchDir, WorkspaceFileName(branchDir)))
 	cmd := execCommand("sh", "-c", expanded)
 	cmd.Dir = branchDir
 	cmd.Stdout = os.Stdout

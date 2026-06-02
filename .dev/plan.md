@@ -123,7 +123,7 @@ File: `~/.config/wtman/config.json`
 ```
 
 - `source_dir` / `target_dir` -- overridable at runtime via `/source-dir` and `/target-dir` commands (persisted to config); prompt shows current value
-- `post_command` -- shell command run after worktrees are created; `{{dir}}` is replaced with the feature branch directory path
+- `post_command` -- shell command run after worktrees are created; `{{dir}}` is replaced with the feature branch directory path, and `{{workspace}}` with the absolute path to the generated `.code-workspace` file
 - `scan_depth` -- how deep to look for git repos in source dir
 - `log_level` -- application log verbosity: `debug`, `info`, `warn`, `error`, or `off` (default `info`). Logs go to stderr so CLI JSON on stdout stays clean. Overridable via `--log-level` / `-v` (debug) on the CLI.
 - `colors` -- ANSI 256-color codes for all UI elements; omitted fields fall back to defaults. Field names are functional:
@@ -385,7 +385,7 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
    - If branch doesn't exist, create from main/master
    - **Per-repo errors are collected, not fatal** -- all repos are attempted even if some fail. Error message lists all failures.
 3. Create Cursor workspace file from repos actually on disk (not the requested list, handles partial failures)
-4. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/`
+4. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/` and `{{workspace}}` replaced by the absolute path to the generated `.code-workspace` file
 5. Post-command and workspace file run regardless of partial failures
 
 ### CreateCursorWorkspace(branchDir string, repoNames []string) error
@@ -393,7 +393,7 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
 Creates a `.code-workspace` file in the branch directory so the user can open all worktree repos in a single Cursor window with multi-root workspace support.
 
 1. Build the workspace JSON with a `folders` array -- one entry per repo, using relative paths (just the repo directory name)
-2. Write `targetDir/<encoded-branch>/workspace.code-workspace`
+2. Write `targetDir/<encoded-branch>/<encoded-branch>.code-workspace` (filename derived from the encoded branch directory name via `WorkspaceFileName`)
 3. The file uses the standard VS Code / Cursor workspace format:
    ```json
    {
