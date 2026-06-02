@@ -10,7 +10,29 @@ import (
 	"strings"
 )
 
+// ensureNoTags adds --no-tags to fetch and pull so wtman never downloads remote tags.
+func ensureNoTags(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	switch args[0] {
+	case "fetch", "pull":
+		for _, a := range args[1:] {
+			if a == "--no-tags" || a == "--tags" {
+				return args
+			}
+		}
+		out := make([]string, 0, len(args)+1)
+		out = append(out, args[0], "--no-tags")
+		out = append(out, args[1:]...)
+		return out
+	default:
+		return args
+	}
+}
+
 func runGit(repoDir string, args ...string) (string, error) {
+	args = ensureNoTags(args)
 	slog.Debug("git", "repo", filepath.Base(repoDir), "args", strings.Join(args, " "))
 	cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)
 	cmd.Env = append(os.Environ(),

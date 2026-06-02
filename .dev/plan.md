@@ -87,7 +87,7 @@ wtman/
                           PullSourceRepos (git pull --no-tags all repos under source_dir; parallel; skips detached HEAD and uninitialized submodules)
     workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
-    git.go             -- low-level git command helpers (runGit, branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
+    git.go             -- low-level git command helpers (runGit auto-adds --no-tags on fetch/pull; branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
     branchlist.go      -- feature branch list: date+time (YYYY-MM-DD HH:MM) | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, o for open (post_command), ? for help, selection stability by name, dirty * and non-master ! markers
