@@ -65,14 +65,22 @@ wtman
 CLI commands for scripting:
 
 ```bash
-wtman ls                          # List feature branches (JSON)
-wtman repos                       # List available source repos (JSON)
-wtman new <branch> <repos> [-n]   # Create branch with worktrees (-n skips post hook)
-wtman rm <branch> [-f]            # Delete branch (-f force even if dirty)
-wtman update <branch> <repos> [-f] # Set repos for branch (-f force dirty removal)
-wtman mv <old> <new>              # Rename branch
-wtman pull                        # Pull all repos under source_dir
+wtman ls                                    # List feature branches (JSON)
+wtman repos                                 # List available source repos (JSON)
+wtman new <branch> <repos> [-n] [--from <ref>]  # Create branch with worktrees (-n skips post hook; --from sets the base ref)
+wtman rm <branch> [-f]                      # Delete branch (-f force even if dirty)
+wtman update <branch> <repos> [-f]          # Set repos for branch (-f force dirty removal)
+wtman mv <old> <new>                        # Rename branch
+wtman pull                                  # Pull all repos under source_dir
 ```
+
+By default, new branches are created from each repo's `main`/`master`. Pass `--from <ref>` to base them on another branch, tag, or commit instead (resolved per repo as a local ref, then `origin/<ref>`):
+
+```bash
+wtman new my-feature auth,billing --from develop
+```
+
+Flags (`-n`, `--from`, `-f`) may appear before, after, or interspersed with the positional arguments.
 
 Enable verbose logging:
 

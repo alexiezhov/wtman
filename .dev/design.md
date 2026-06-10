@@ -148,9 +148,34 @@ Same layout as screen 3, but repos already in the feature branch are pre-selecte
 │                                                                 │
 │                                                                 │
 │                                                                 │
+│  ENTER next  ESC back                                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6b. Base Branch Prompt
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  wtman ── new feature branch                                    │
+│                                                                 │
+│  Selected: payment-gateway, report-engine                       │
+│                                                                 │
+│  Base branch (default main/master): develop▌                    │
+│                                                                 │
+│                                                                 │
+│                                                                 │
+│                                                                 │
+│                                                                 │
+│                                                                 │
+│                                                                 │
 │  ENTER create  ESC back                                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+Optional. Leave blank to branch from main/master (default). A non-empty value is used
+as the start point for every newly created branch (the CLI equivalent is
+`wtman new <branch> <repos> --from <ref>`). Resolved per repo as a local branch, then
+`origin/<ref>`. ESC returns to the Branch Name Prompt.
 
 ### 7. Delete Confirmation
 

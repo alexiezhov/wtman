@@ -77,17 +77,19 @@ func cmdRepos(cfg core.Config, args []string) {
 func cmdNew(cfg core.Config, args []string) {
 	fs := flag.NewFlagSet("new", flag.ExitOnError)
 	noHook := fs.Bool("n", false, "skip post_command hook")
+	from := fs.String("from", "", "base branch/ref for new branches (default: main/master)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: wtman new <branch> <repo,repo,...> [-n]")
+		fmt.Fprintln(os.Stderr, "Usage: wtman new <branch> <repo,repo,...> [-n] [--from <ref>]")
 		os.Exit(0)
 	}
-	fs.Parse(args)
+	positional := parseInterspersed(fs, args)
 
-	if fs.NArg() < 2 {
+	if len(positional) < 2 {
 		fs.Usage()
 	}
-	branch := fs.Arg(0)
-	repoNames := strings.Split(fs.Arg(1), ",")
+	branch := positional[0]
+	repoNames := strings.Split(positional[1], ",")
+	base := strings.TrimSpace(*from)
 
 	allRepos, err := core.DiscoverRepos(cfg.SourceDir, cfg.ScanDepth)
 	if err != nil {
@@ -95,7 +97,7 @@ func cmdNew(cfg core.Config, args []string) {
 	}
 	repos := filterRepos(allRepos, repoNames)
 
-	if err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir); err != nil {
+	if err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir, base); err != nil {
 		die(err.Error())
 	}
 
@@ -107,7 +109,7 @@ func cmdNew(cfg core.Config, args []string) {
 		_ = core.RunPostCommand(cfg.PostCommand, branchDir)
 	}
 
-	jsonOut(map[string]any{"branch": branch, "path": branchDir, "repos": onDisk})
+	jsonOut(map[string]any{"branch": branch, "path": branchDir, "repos": onDisk, "base": base})
 }
 
 func cmdRM(cfg core.Config, args []string) {
@@ -117,12 +119,12 @@ func cmdRM(cfg core.Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: wtman rm <branch> [-f]")
 		os.Exit(0)
 	}
-	fs.Parse(args)
+	positional := parseInterspersed(fs, args)
 
-	if fs.NArg() < 1 {
+	if len(positional) < 1 {
 		fs.Usage()
 	}
-	branch := fs.Arg(0)
+	branch := positional[0]
 
 	if err := core.DeleteFeatureBranch(cfg.TargetDir, branch, *force); err != nil {
 		die(err.Error())
@@ -137,13 +139,13 @@ func cmdUpdate(cfg core.Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: wtman update <branch> <repo,repo,...> [-f]")
 		os.Exit(0)
 	}
-	fs.Parse(args)
+	positional := parseInterspersed(fs, args)
 
-	if fs.NArg() < 2 {
+	if len(positional) < 2 {
 		fs.Usage()
 	}
-	branch := fs.Arg(0)
-	repoNames := strings.Split(fs.Arg(1), ",")
+	branch := positional[0]
+	repoNames := strings.Split(positional[1], ",")
 
 	allRepos, err := core.DiscoverRepos(cfg.SourceDir, cfg.ScanDepth)
 	if err != nil {
@@ -200,6 +202,24 @@ func cmdPull(cfg core.Config, args []string) {
 		die(err.Error())
 	}
 	jsonOut(map[string]any{"ok": true})
+}
+
+// parseInterspersed parses args with the given flag set, allowing flags to
+// appear before, after, or interspersed with positional arguments. Go's flag
+// package stops at the first positional, so this loops: parse leading flags,
+// peel off one positional, repeat. Returns the collected positional args.
+func parseInterspersed(fs *flag.FlagSet, args []string) []string {
+	var positional []string
+	for {
+		fs.Parse(args)
+		args = fs.Args()
+		if len(args) == 0 {
+			break
+		}
+		positional = append(positional, args[0])
+		args = args[1:]
+	}
+	return positional
 }
 
 func jsonOut(v any) {
