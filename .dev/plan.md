@@ -87,7 +87,7 @@ wtman/
                           PullSourceRepos (git pull --no-tags all repos under source_dir; parallel; skips detached HEAD and uninitialized submodules)
     workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
-    git.go             -- low-level git command helpers (runGit auto-adds --no-tags on fetch/pull; branchExists, defaultStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
+    git.go             -- low-level git command helpers (runGit auto-adds --no-tags on fetch/pull; branchExists, defaultStartPoint, resolveStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
     app.go             -- root bubbletea Model: orchestrator for layout, focus, mode transitions, timed error display
     branchlist.go      -- feature branch list: date+time (YYYY-MM-DD HH:MM) | name | repos header, up/down/j/k, Enter for update, d/Backspace/Delete for delete, o for open (post_command), ? for help, selection stability by name, dirty * and non-master ! markers
@@ -155,7 +155,7 @@ Non-interactive, JSON-outputting interface for scripting and Cursor skills. No s
 |---------|-------------|
 | `wtman ls` | List feature branches |
 | `wtman repos` | List available source repos |
-| `wtman new <branch> <repos> [-n]` | Create branch with worktrees (`-n` skips post hook) |
+| `wtman new <branch> <repos> [-n] [--from <ref>]` | Create branch with worktrees (`-n` skips post hook; `--from` sets the base ref for new branches) |
 | `wtman rm <branch> [-f]` | Delete branch (`-f` force even if dirty) |
 | `wtman update <branch> <repos> [-f]` | Set repos for branch (`-f` force dirty removal) |
 | `wtman mv <old> <new>` | Rename branch |
@@ -181,8 +181,10 @@ The `date` field is the feature-branch directory modification time in local time
 
 **`wtman new`:**
 ```json
-{"branch":"feat-x","path":"/b/feat-x","repos":["auth","billing"]}
+{"branch":"feat-x","path":"/b/feat-x","repos":["auth","billing"],"base":"develop"}
 ```
+
+The `base` field is the `--from` ref used as the start point for newly created branches (empty string when defaulting to main/master).
 
 **`wtman rm`, `mv`, `pull`, `update` (success):**
 ```json
@@ -301,8 +303,25 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   Branch name: my-new-feature_
 
 
+  ENTER next  ESC back
+```
+
+### Base Branch Prompt (after entering the branch name in `/new`)
+
+```
+  WTMAN - worktree manager -- new feature branch
+
+  Selected: payment-gateway, report-engine
+
+  Base branch (default main/master): develop_
+
+
   ENTER create  ESC back
 ```
+
+- Optional step: leave blank to branch from each repo's main/master (current default).
+- A non-empty value is used as the start point for every newly created branch (`--from` equivalent). Resolved per repo as a local branch, then `origin/<ref>`.
+- ESC returns to the Branch Name Prompt.
 
 ### Delete Confirmation (on `d` / Backspace / Delete or `/delete`)
 
@@ -377,12 +396,12 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
 
 ## Core Operations Detail
 
-### CreateWorktrees(repos []RepoEntry, branch string, targetDir string) error
+### CreateWorktrees(sourceDir string, repos []RepoEntry, branch string, targetDir string, base string) error
 
 1. Create `targetDir/<encoded-branch>/` directory (branch `/` encoded as `--`)
 2. For each repo: `git worktree prune` (clean stale refs), then `git worktree add targetDir/<encoded-branch>/repoName branch`
-   - If branch exists locally or on origin, check it out
-   - If branch doesn't exist, create from main/master
+   - If `base` is non-empty, the new branch is always created from the resolved base ref (`resolveStartPoint`: local branch, then `origin/<base>`); errors if the base ref is not found
+   - If `base` is empty (default): if the branch exists locally or on origin, check it out; otherwise create from main/master (`defaultStartPoint`)
    - **Per-repo errors are collected, not fatal** -- all repos are attempted even if some fail. Error message lists all failures.
 3. Create Cursor workspace file from repos actually on disk (not the requested list, handles partial failures)
 4. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/` and `{{workspace}}` replaced by the absolute path to the generated `.code-workspace` file
@@ -431,7 +450,7 @@ Called before UpdateFeatureBranch. Computes which repos would be removed by the 
 1. Discover current worktrees under `targetDir/<encoded-branch>/`
 2. Compute diff: repos to add, repos to remove
 3. For removals: `git worktree remove` (with `--force` if `forceRemove`), `git worktree prune`. Directory is always cleaned up via `os.RemoveAll` after removal attempt. **Does not delete the git branch** -- the branch is still in use by other repos in the feature branch.
-4. For additions: same as CreateWorktrees per-repo logic (per-repo errors collected, not fatal). Runs `git worktree prune` before adding to clean up stale refs from previous removals.
+4. For additions: same as CreateWorktrees per-repo logic with an empty base (per-repo errors collected, not fatal) -- newly added repos branch from the existing branch / main / master, never from a `--from` ref. Runs `git worktree prune` before adding to clean up stale refs from previous removals.
 5. Regenerate Cursor workspace file from repos actually on disk
 
 **Update flow in TUI:**

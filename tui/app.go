@@ -16,6 +16,7 @@ const (
 	modeBranchList mode = iota
 	modeRepoSelect
 	modeBranchNamePrompt
+	modeBaseBranchPrompt
 	modeDeleteConfirm
 	modeDirtyDeleteConfirm
 	modeRenamePrompt
@@ -45,6 +46,7 @@ type AppModel struct {
 	// state for multi-step flows
 	pendingRepos  []core.RepoEntry
 	pendingBranch string
+	pendingBase   string
 	isNewFlow     bool
 }
 
@@ -199,7 +201,7 @@ func (m AppModel) View() string {
 
 	// Title
 	title := styleTitle.Render("  WTMAN - worktree manager")
-	if m.mode == modeRepoSelect || m.mode == modeBranchNamePrompt {
+	if m.mode == modeRepoSelect || m.mode == modeBranchNamePrompt || m.mode == modeBaseBranchPrompt {
 		suffix := "new feature branch"
 		if !m.isNewFlow {
 			suffix = "update " + m.pendingBranch
@@ -214,7 +216,7 @@ func (m AppModel) View() string {
 		b.WriteString(m.branchList.View())
 	case modeRepoSelect:
 		b.WriteString(m.repoSelect.View())
-	case modeBranchNamePrompt:
+	case modeBranchNamePrompt, modeBaseBranchPrompt:
 		names := repoNames(m.pendingRepos)
 		b.WriteString("  Selected: " + strings.Join(names, ", ") + "\n\n")
 		b.WriteString(m.prompt.View())
@@ -390,6 +392,11 @@ func (m AppModel) handlePromptResult(msg PromptResultMsg) (tea.Model, tea.Cmd) {
 			m.mode = modeRepoSelect
 			return m, nil
 		}
+		if m.mode == modeBaseBranchPrompt {
+			m.mode = modeBranchNamePrompt
+			m.prompt = m.prompt.ActivateText("Branch name:")
+			return m, nil
+		}
 		m.mode = modeBranchList
 		return m, nil
 	}
@@ -401,6 +408,12 @@ func (m AppModel) handlePromptResult(msg PromptResultMsg) (tea.Model, tea.Cmd) {
 			m.errMsg = "branch name cannot be empty"
 			return m, nil
 		}
+		m.mode = modeBaseBranchPrompt
+		m.prompt = m.prompt.ActivateText("Base branch (default main/master):")
+		return m, nil
+
+	case modeBaseBranchPrompt:
+		m.pendingBase = strings.TrimSpace(msg.Value)
 		return m.runCreate()
 
 	case modeRenamePrompt:
@@ -466,12 +479,13 @@ func (m AppModel) runCreate() (tea.Model, tea.Cmd) {
 	m.spinnerMsg = "Creating worktrees..."
 	repos := m.pendingRepos
 	branch := m.pendingBranch
+	base := m.pendingBase
 	cfg := m.cfg
 	return m, tea.Batch(
 		m.spinner.Tick,
 		func() tea.Msg {
 			var errs []string
-			if err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir); err != nil {
+			if err := core.CreateWorktrees(cfg.SourceDir, repos, branch, cfg.TargetDir, base); err != nil {
 				errs = append(errs, err.Error())
 			}
 			branchDir := cfg.TargetDir + "/" + core.BranchToDirName(branch)

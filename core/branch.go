@@ -109,11 +109,11 @@ func SanitizeBranchName(name string) error {
 	return nil
 }
 
-func CreateWorktrees(sourceDir string, repos []RepoEntry, branch, targetDir string) error {
+func CreateWorktrees(sourceDir string, repos []RepoEntry, branch, targetDir, base string) error {
 	if err := SanitizeBranchName(branch); err != nil {
 		return err
 	}
-	slog.Info("create worktrees", "branch", branch, "repos", len(repos), "target", targetDir)
+	slog.Info("create worktrees", "branch", branch, "repos", len(repos), "target", targetDir, "base", base)
 	branchDir := filepath.Join(targetDir, BranchToDirName(branch))
 	if err := os.MkdirAll(branchDir, 0o755); err != nil {
 		return err
@@ -122,7 +122,7 @@ func CreateWorktrees(sourceDir string, repos []RepoEntry, branch, targetDir stri
 	var errs []string
 	for _, repo := range repos {
 		wtPath := filepath.Join(branchDir, repo.Name)
-		if err := addWorktree(repo.Path, branch, wtPath); err != nil {
+		if err := addWorktree(repo.Path, branch, base, wtPath); err != nil {
 			slog.Warn("worktree add failed", "repo", repo.Name, "error", err)
 			errs = append(errs, fmt.Sprintf("%s: %v", repo.Name, err))
 		}
@@ -333,7 +333,7 @@ func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir 
 			continue
 		}
 		wtPath := filepath.Join(branchDir, repo.Name)
-		if err := addWorktree(repo.Path, branch, wtPath); err != nil {
+		if err := addWorktree(repo.Path, branch, "", wtPath); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", repo.Name, err))
 		}
 	}
@@ -344,7 +344,7 @@ func UpdateFeatureBranch(sourceDir string, repos []RepoEntry, branch, targetDir 
 	return nil
 }
 
-func addWorktree(repoPath, branch, wtPath string) error {
+func addWorktree(repoPath, branch, base, wtPath string) error {
 	if _, err := os.Stat(wtPath); err == nil {
 		return fmt.Errorf("path already exists: %s", wtPath)
 	}
@@ -354,6 +354,16 @@ func addWorktree(repoPath, branch, wtPath string) error {
 
 	// Clean up stale worktree refs so re-adding a previously removed repo works
 	_, _ = runGit(repoPath, "worktree", "prune")
+
+	// Explicit base: always create a new branch from the resolved start point.
+	if base != "" {
+		sp, err := resolveStartPoint(repoPath, base)
+		if err != nil {
+			return err
+		}
+		_, err = runGit(repoPath, "worktree", "add", "-b", branch, wtPath, sp)
+		return err
+	}
 
 	if branchExistsLocally(repoPath, branch) {
 		_, err := runGit(repoPath, "worktree", "add", wtPath, branch)

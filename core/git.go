@@ -75,6 +75,19 @@ func defaultStartPoint(repoDir string) (string, error) {
 	return "", fmt.Errorf("no main/master branch found in %s", filepath.Base(repoDir))
 }
 
+// resolveStartPoint resolves an explicit user-supplied base ref to a start point
+// usable by `git worktree add -b`. It prefers a local branch/tag/SHA, then falls
+// back to origin/<ref>. Returns an error if the ref cannot be found.
+func resolveStartPoint(repoDir, ref string) (string, error) {
+	if branchExistsLocally(repoDir, ref) {
+		return ref, nil
+	}
+	if branchExistsRemote(repoDir, ref) {
+		return "origin/" + ref, nil
+	}
+	return "", fmt.Errorf("base ref %q not found in %s", ref, filepath.Base(repoDir))
+}
+
 func IsGitRepo(path string) bool {
 	info, err := os.Stat(filepath.Join(path, ".git"))
 	if err != nil {
