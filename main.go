@@ -7,9 +7,9 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hibobio/wtman/cli"
-	"github.com/hibobio/wtman/core"
-	"github.com/hibobio/wtman/tui"
+	"github.com/alexiezhov/wtman/cli"
+	"github.com/alexiezhov/wtman/core"
+	"github.com/alexiezhov/wtman/tui"
 )
 
 var cliCommands = map[string]bool{

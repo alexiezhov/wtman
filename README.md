@@ -8,7 +8,7 @@ A multi-repo git worktree manager with an interactive TUI and CLI. Creates featu
 brew install go git
 ```
 
-- **Go 1.26+** — [install via Homebrew](https://formulae.brew.sh/formula/go) or from [go.dev](https://go.dev/dl/)
+- **Go 1.26 or newer** — [install via Homebrew](https://formulae.brew.sh/formula/go) or from [go.dev](https://go.dev/dl/).
 - **git** — required at runtime for all worktree operations
 - **macOS** — the approval watcher uses `osascript` and `script` (both ship with macOS)
 
@@ -29,7 +29,7 @@ go build -o wtman . && mv wtman ~/.local/bin/
 Or install directly:
 
 ```bash
-go install github.com/hibobio/wtman@latest
+go install github.com/alexiezhov/wtman@latest
 ```
 
 ## Configuration

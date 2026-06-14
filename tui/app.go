@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/hibobio/wtman/core"
+	"github.com/alexiezhov/wtman/core"
 )
 
 type mode int

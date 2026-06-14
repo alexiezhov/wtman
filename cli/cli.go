@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hibobio/wtman/core"
+	"github.com/alexiezhov/wtman/core"
 )
 
 func Run(cfg core.Config, args []string) {

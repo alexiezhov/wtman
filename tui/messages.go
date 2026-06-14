@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/hibobio/wtman/core"
+import "github.com/alexiezhov/wtman/core"
 
 // Outcome messages emitted by sub-models
 

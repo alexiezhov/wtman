@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hibobio/wtman/core"
+	"github.com/alexiezhov/wtman/core"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

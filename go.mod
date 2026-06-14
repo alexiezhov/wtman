@@ -1,6 +1,6 @@
-module github.com/hibobio/wtman
+module github.com/alexiezhov/wtman
 
-go 1.26.2
+go 1.26
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

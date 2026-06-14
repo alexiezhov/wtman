@@ -2,7 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hibobio/wtman/core"
+	"github.com/alexiezhov/wtman/core"
 )
 
 var (
