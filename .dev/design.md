@@ -14,6 +14,8 @@
 
 6. **Sorted repo names everywhere** -- repo names are always sorted alphabetically: in the repo select list, in the branch list Repos column, and in prompt summaries.
 
+7. **Editor-agnostic multi-repo workspace** -- after worktrees are created or updated, wtman writes both a Cursor/VS Code `.code-workspace` file and an IntelliJ `.idea/` project at the branch root. Each editor opens the branch as a single multi-root workspace where every repo's existing run configurations stay reachable. The IntelliJ generation can be opted out with `no_intellij_workspace` in config.
+
 ## Screens
 
 ### 1. Branch List (default)

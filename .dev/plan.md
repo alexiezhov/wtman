@@ -85,7 +85,10 @@ wtman/
                           CreateWorktrees, DeleteFeatureBranch, RenameFeatureBranch,
                           UpdateFeatureBranch (forceRemove flag), DirtyRemovedWorktrees,
                           PullSourceRepos (git pull --no-tags all repos under source_dir; parallel; skips detached HEAD and uninitialized submodules)
-    workspace.go       -- CreateCursorWorkspace (generates .code-workspace file)
+    workspace.go       -- CreateCursorWorkspace (generates .code-workspace file),
+                          CreateIntellijWorkspace (generates .idea/ with modules per repo,
+                          referencing each repo's existing .iml so IntelliJ picks up its
+                          committed run configurations)
     watcher.go         -- DirWatcher: polls source/target dirs every 2s, sends updates on a channel
     git.go             -- low-level git command helpers (runGit auto-adds --no-tags on fetch/pull; branchExists, defaultStartPoint, resolveStartPoint, IsWorktreeDirty, IsOnMainBranch, etc.)
   tui/
@@ -109,6 +112,7 @@ File: `~/.config/wtman/config.json`
   "post_command": "tmux split-window -h 'cd {{dir}} && cursor --agent'",
   "scan_depth": 1,
   "log_level": "info",
+  "no_intellij_workspace": false,
   "colors": {
     "title": "99",
     "success": "48",
@@ -126,6 +130,7 @@ File: `~/.config/wtman/config.json`
 - `post_command` -- shell command run after worktrees are created; `{{dir}}` is replaced with the feature branch directory path, and `{{workspace}}` with the absolute path to the generated `.code-workspace` file
 - `scan_depth` -- how deep to look for git repos in source dir
 - `log_level` -- application log verbosity: `debug`, `info`, `warn`, `error`, or `off` (default `info`). Logs go to stderr so CLI JSON on stdout stays clean. Overridable via `--log-level` / `-v` (debug) on the CLI.
+- `no_intellij_workspace` -- opt-out flag (default `false`). When `false`, an IntelliJ `.idea/` directory is generated next to the `.code-workspace` file so the branch can be opened as a multi-module project in IntelliJ/GoLand/WebStorm/etc. Set to `true` to skip it.
 - `colors` -- ANSI 256-color codes for all UI elements; omitted fields fall back to defaults. Field names are functional:
   - `title` -- title bar, spinner
   - `success` -- [x] checkmarks
@@ -404,8 +409,9 @@ All input is blocked while a spinner is active. The spinner uses the `bubbles/sp
    - If `base` is empty (default): if the branch exists locally or on origin, check it out; otherwise create from main/master (`defaultStartPoint`)
    - **Per-repo errors are collected, not fatal** -- all repos are attempted even if some fail. Error message lists all failures.
 3. Create Cursor workspace file from repos actually on disk (not the requested list, handles partial failures)
-4. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/` and `{{workspace}}` replaced by the absolute path to the generated `.code-workspace` file
-5. Post-command and workspace file run regardless of partial failures
+4. Create IntelliJ `.idea/` workspace from the same on-disk repo list (unless `no_intellij_workspace` is set)
+5. Run `post_command` with `{{dir}}` replaced by `targetDir/<encoded-branch>/` and `{{workspace}}` replaced by the absolute path to the generated `.code-workspace` file
+6. Post-command, Cursor workspace file, and IntelliJ workspace all run regardless of partial failures
 
 ### CreateCursorWorkspace(branchDir string, repoNames []string) error
 
@@ -424,6 +430,56 @@ Creates a `.code-workspace` file in the branch directory so the user can open al
    }
    ```
 4. Called after CreateWorktrees and after UpdateFeatureBranch (to keep the workspace in sync with the current repo set)
+
+### CreateIntellijWorkspace(branchDir string, repoNames []string) error
+
+Creates an IntelliJ project at the branch root so the user can open every repo in a single IntelliJ/GoLand/WebStorm/etc. window and run the run configurations each repo already ships in its own `.idea/`.
+
+Approach: write a top-level `.idea/modules.xml` that references **each repo's existing `.iml` file** (under `<repo>/.idea/*.iml`). This matches IntelliJ's "attached projects" wiring -- each repo keeps its own `.idea/` (including `runConfigurations/`), and IntelliJ surfaces all of them in one window.
+
+Steps:
+
+1. Skip entirely if `config.no_intellij_workspace` is true.
+2. Create `branchDir/.idea/`.
+3. Write `branchDir/.idea/.name` with the encoded branch name (drives the IntelliJ window title).
+4. Write `branchDir/.idea/.gitignore` with `workspace.xml` and `shelf/` (standard IntelliJ ignore -- the dir itself isn't checked in either, but this keeps it clean if someone does).
+5. For each repo, in order:
+   - Look for an existing `.iml` under `<branchDir>/<repo>/.idea/*.iml`. If found, reference it directly in `modules.xml` (path `$PROJECT_DIR$/<repo>/.idea/<name>.iml`).
+   - If none, generate a minimal `branchDir/.idea/<repo>.iml` with a single content root pointing at `$MODULE_DIR$/../<repo>` and reference that.
+6. Write `branchDir/.idea/modules.xml` listing all module entries.
+7. Errors are per-repo non-fatal: missing `.idea/` in a repo is normal (we fall through to generating a fallback `.iml`); only filesystem write errors abort the function.
+
+Format reference (modules.xml):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/billing-api/.idea/billing-api.iml"
+              filepath="$PROJECT_DIR$/billing-api/.idea/billing-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/payment-gateway.iml"
+              filepath="$PROJECT_DIR$/.idea/payment-gateway.iml" />
+    </modules>
+  </component>
+</project>
+```
+
+Fallback generated `.iml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$/../payment-gateway" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+```
+
+Called from the same call sites as `CreateCursorWorkspace` (after `CreateWorktrees`, after `UpdateFeatureBranch`) so the IntelliJ project stays in sync with the current repo set.
 
 ### DeleteFeatureBranch(targetDir, branch string, force bool) error
 
@@ -452,6 +508,7 @@ Called before UpdateFeatureBranch. Computes which repos would be removed by the 
 3. For removals: `git worktree remove` (with `--force` if `forceRemove`), `git worktree prune`. Directory is always cleaned up via `os.RemoveAll` after removal attempt. **Does not delete the git branch** -- the branch is still in use by other repos in the feature branch.
 4. For additions: same as CreateWorktrees per-repo logic with an empty base (per-repo errors collected, not fatal) -- newly added repos branch from the existing branch / main / master, never from a `--from` ref. Runs `git worktree prune` before adding to clean up stale refs from previous removals.
 5. Regenerate Cursor workspace file from repos actually on disk
+6. Regenerate IntelliJ `.idea/` workspace from the same repo list (unless `no_intellij_workspace` is set)
 
 **Update flow in TUI:**
 1. User confirms repo selection → `DirtyRemovedWorktrees` checks for dirty removals

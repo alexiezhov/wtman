@@ -31,12 +31,13 @@ func DefaultColors() ColorsConfig {
 }
 
 type Config struct {
-	SourceDir   string       `json:"source_dir"`
-	TargetDir   string       `json:"target_dir"`
-	PostCommand string       `json:"post_command"`
-	ScanDepth   int          `json:"scan_depth"`
-	LogLevel    string       `json:"log_level,omitempty"`
-	Colors      ColorsConfig `json:"colors,omitempty"`
+	SourceDir           string       `json:"source_dir"`
+	TargetDir           string       `json:"target_dir"`
+	PostCommand         string       `json:"post_command"`
+	ScanDepth           int          `json:"scan_depth"`
+	LogLevel            string       `json:"log_level,omitempty"`
+	NoIntellijWorkspace bool         `json:"no_intellij_workspace,omitempty"`
+	Colors              ColorsConfig `json:"colors,omitempty"`
 }
 
 func DefaultConfigPath() string {

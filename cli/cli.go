@@ -104,6 +104,9 @@ func cmdNew(cfg core.Config, args []string) {
 	branchDir := filepath.Join(cfg.TargetDir, core.BranchToDirName(branch))
 	onDisk := core.ListReposOnDisk(branchDir)
 	_ = core.CreateCursorWorkspace(branchDir, onDisk)
+	if !cfg.NoIntellijWorkspace {
+		_ = core.CreateIntellijWorkspace(branchDir, onDisk)
+	}
 
 	if !*noHook {
 		_ = core.RunPostCommand(cfg.PostCommand, branchDir)
@@ -168,6 +171,9 @@ func cmdUpdate(cfg core.Config, args []string) {
 	branchDir := filepath.Join(cfg.TargetDir, core.BranchToDirName(branch))
 	onDisk := core.ListReposOnDisk(branchDir)
 	_ = core.CreateCursorWorkspace(branchDir, onDisk)
+	if !cfg.NoIntellijWorkspace {
+		_ = core.CreateIntellijWorkspace(branchDir, onDisk)
+	}
 
 	jsonOut(map[string]any{"ok": true})
 }

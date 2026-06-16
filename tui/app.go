@@ -493,6 +493,11 @@ func (m AppModel) runCreate() (tea.Model, tea.Cmd) {
 			if err := core.CreateCursorWorkspace(branchDir, actual); err != nil {
 				errs = append(errs, "workspace file: "+err.Error())
 			}
+			if !cfg.NoIntellijWorkspace {
+				if err := core.CreateIntellijWorkspace(branchDir, actual); err != nil {
+					errs = append(errs, "intellij workspace: "+err.Error())
+				}
+			}
 			if cfg.PostCommand != "" {
 				if err := core.RunPostCommand(cfg.PostCommand, branchDir); err != nil {
 					errs = append(errs, "post_command: "+err.Error())
@@ -530,6 +535,11 @@ func (m AppModel) runUpdate(forceRemove bool) (tea.Model, tea.Cmd) {
 			actual := core.ListReposOnDisk(branchDir)
 			if err := core.CreateCursorWorkspace(branchDir, actual); err != nil {
 				errs = append(errs, "workspace file: "+err.Error())
+			}
+			if !cfg.NoIntellijWorkspace {
+				if err := core.CreateIntellijWorkspace(branchDir, actual); err != nil {
+					errs = append(errs, "intellij workspace: "+err.Error())
+				}
 			}
 			return OperationDoneMsg{Err: joinErrors(errs)}
 		},
