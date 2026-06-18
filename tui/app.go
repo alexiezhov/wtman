@@ -146,7 +146,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pendingRepos = msg.Repos
 		if m.isNewFlow {
 			m.mode = modeBranchNamePrompt
-			m.prompt = m.prompt.ActivateText("Branch name:")
+			m.prompt = m.prompt.ActivateKebab("Branch name:")
 			return m, nil
 		}
 		return m.checkDirtyBeforeUpdate()
@@ -380,7 +380,7 @@ func (m AppModel) enterRenameMode() (tea.Model, tea.Cmd) {
 	}
 	m.pendingBranch = br.Name
 	m.mode = modeRenamePrompt
-	m.prompt = m.prompt.ActivateText(fmt.Sprintf("Rename %q to:", br.Name))
+	m.prompt = m.prompt.ActivateKebab(fmt.Sprintf("Rename %q to:", br.Name))
 	return m, nil
 }
 
@@ -394,7 +394,7 @@ func (m AppModel) handlePromptResult(msg PromptResultMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.mode == modeBaseBranchPrompt {
 			m.mode = modeBranchNamePrompt
-			m.prompt = m.prompt.ActivateText("Branch name:")
+			m.prompt = m.prompt.ActivateKebab("Branch name:")
 			return m, nil
 		}
 		m.mode = modeBranchList

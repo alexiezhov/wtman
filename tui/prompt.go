@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"strings"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -14,11 +16,12 @@ const (
 )
 
 type PromptModel struct {
-	kind    PromptKind
-	label   string
-	value   string
-	active  bool
-	width   int
+	kind   PromptKind
+	label  string
+	value  string
+	active bool
+	kebab  bool
+	width  int
 }
 
 func NewPrompt() PromptModel {
@@ -34,6 +37,18 @@ func (m PromptModel) ActivateText(label string) PromptModel {
 	m.label = label
 	m.value = ""
 	m.active = true
+	m.kebab = false
+	return m
+}
+
+// ActivateKebab activates a text prompt whose input is normalized to kebab-case
+// as the user types or pastes (lowercase, whitespace to dash, collapsed/trimmed).
+func (m PromptModel) ActivateKebab(label string) PromptModel {
+	m.kind = PromptText
+	m.label = label
+	m.value = ""
+	m.active = true
+	m.kebab = true
 	return m
 }
 
@@ -42,6 +57,7 @@ func (m PromptModel) ActivateConfirm(label string) PromptModel {
 	m.label = label
 	m.value = ""
 	m.active = true
+	m.kebab = false
 	return m
 }
 
@@ -72,17 +88,54 @@ func (m PromptModel) updateText(msg tea.KeyMsg) (PromptModel, tea.Cmd) {
 		return m, func() tea.Msg { return PromptResultMsg{Cancelled: true} }
 	case tea.KeyEnter:
 		m.active = false
-		return m, func() tea.Msg { return PromptResultMsg{Value: m.value} }
+		val := m.value
+		if m.kebab {
+			val = kebabCase(val, true)
+		}
+		return m, func() tea.Msg { return PromptResultMsg{Value: val} }
 	case tea.KeyBackspace:
 		if len(m.value) > 0 {
 			m.value = m.value[:len(m.value)-1]
 		}
 		return m, nil
-	case tea.KeyRunes:
-		m.value += string(msg.Runes)
+	case tea.KeyRunes, tea.KeySpace:
+		if msg.Type == tea.KeySpace {
+			m.value += " "
+		} else {
+			m.value += string(msg.Runes)
+		}
+		if m.kebab {
+			m.value = kebabCase(m.value, msg.Paste)
+		}
 		return m, nil
 	}
 	return m, nil
+}
+
+// kebabCase normalizes s to kebab-case: lowercases, converts whitespace and dash
+// runs into a single dash, and trims the leading dash. The trailing dash is only
+// trimmed when trimTrailing is true (on paste and on submit) so that incremental
+// typing of a separator followed by more text is preserved.
+func kebabCase(s string, trimTrailing bool) string {
+	s = strings.ToLower(s)
+	var b strings.Builder
+	prevDash := false
+	for _, r := range s {
+		if unicode.IsSpace(r) || r == '-' {
+			if !prevDash {
+				b.WriteRune('-')
+				prevDash = true
+			}
+			continue
+		}
+		b.WriteRune(r)
+		prevDash = false
+	}
+	out := strings.TrimLeft(b.String(), "-")
+	if trimTrailing {
+		out = strings.TrimRight(out, "-")
+	}
+	return out
 }
 
 func (m PromptModel) updateConfirm(msg tea.KeyMsg) (PromptModel, tea.Cmd) {
