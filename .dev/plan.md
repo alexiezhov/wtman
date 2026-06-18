@@ -200,6 +200,10 @@ The `base` field is the `--from` ref used as the start point for newly created b
 
 Branch names containing `/` (e.g. `a/feat/add-field`) are encoded on disk by replacing `/` with `--` (e.g. directory `a--feat--add-field`). The git branch name itself uses the original `/` form. Encoding/decoding is handled by `BranchToDirName` / `DirNameToBranch` and is transparent to the user.
 
+## Branch Name Normalization
+
+The TUI branch-name prompt (`/new`) and the rename prompt normalize input to kebab-case as the user types or pastes: lowercase, whitespace to `-`, consecutive separators collapsed to a single dash, and leading/trailing dashes trimmed. Implemented by `kebabCase` in `tui/prompt.go` and activated via `PromptModel.ActivateKebab`. Typing keeps a single trailing dash so the following character attaches; paste (`tea.KeyMsg.Paste`) and confirm (Enter) trim the trailing dash for a clean final name. `/` is preserved (and is still encoded on disk per Branch Name Encoding above). Other text prompts (base branch, source-dir, target-dir) are not normalized.
+
 ## TUI Modes and Flow
 
 ### Mode 1: Branch List (default view)
@@ -306,6 +310,8 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   ENTER next  ESC back
 ```
 
+- Input is auto-normalized to kebab-case live while typing or pasting: uppercase to lowercase, whitespace to `-`, consecutive separators collapsed to one dash, leading/trailing dashes trimmed (trailing trimmed on paste and on confirm; a single trailing dash is kept while typing so the next character attaches). `/` is preserved.
+
 ### Base Branch Prompt (after entering the branch name in `/new`)
 
 ```
@@ -350,6 +356,8 @@ For update (Enter) -- repos already in the feature branch are pre-selected.
   Rename to: migrate-auth-v2_
   ENTER rename  ESC cancel
 ```
+
+- Same kebab-case auto-normalization as the Branch Name Prompt (applied while typing or pasting).
 
 ### Help Screen (on `?`)
 

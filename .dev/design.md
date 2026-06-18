@@ -152,6 +152,13 @@ Same layout as screen 3, but repos already in the feature branch are pre-selecte
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+The input is auto-normalized to kebab-case live as the user types or pastes:
+uppercase becomes lowercase, whitespace becomes `-`, consecutive separators
+collapse to a single dash, and leading/trailing dashes are trimmed (trailing is
+trimmed on paste and on confirm; a single trailing dash is kept while typing so
+the next character attaches correctly). `/` is preserved. The same normalization
+applies to the Rename Prompt (screen 8).
+
 ### 6b. Base Branch Prompt
 
 ```
