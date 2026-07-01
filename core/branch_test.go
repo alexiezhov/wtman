@@ -377,7 +377,10 @@ func TestPullSourceRepos_pullsAndSkips(t *testing.T) {
 
 	// Bare upstream + seed clone to populate it.
 	upstream := filepath.Join(root, "upstream.git")
-	git(t, root, "init", "--bare", "-q", upstream)
+	// -b main so the bare repo's HEAD matches the branch the seed pushes below;
+	// otherwise the runner's default (e.g. master) leaves HEAD dangling and the
+	// app clone checks out nothing.
+	git(t, root, "init", "--bare", "-q", "-b", "main", upstream)
 	seed := filepath.Join(root, "seed")
 	git(t, root, "clone", "-q", upstream, seed)
 	configRepo(t, seed)
