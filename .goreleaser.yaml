@@ -1,0 +1,75 @@
+# GoReleaser config — https://goreleaser.com
+version: 2
+
+project_name: wtman
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: wtman
+    main: .
+    binary: wtman
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: wtman
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge branch
+
+homebrew_casks:
+  - repository:
+      owner: alexiezhov
+      name: homebrew-apps
+    directory: Casks
+    homepage: "https://github.com/alexiezhov/wtman"
+    description: "Multi-repo git worktree manager with an interactive TUI and CLI"
+    # Strip the macOS quarantine attribute so the unsigned binary runs without
+    # the "wtman is damaged and can't be opened" Gatekeeper warning.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/wtman"]
+          end
+
+release:
+  github:
+    owner: alexiezhov
+    name: wtman
+  draft: false
+  prerelease: auto

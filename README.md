@@ -20,6 +20,16 @@ go build -o wtman .
 
 ## Install
 
+### Homebrew (recommended, macOS)
+
+```bash
+brew install --cask alexiezhov/apps/wtman
+```
+
+This taps `alexiezhov/homebrew-apps` and installs the latest release. Upgrade with `brew upgrade --cask wtman`.
+
+### From source
+
 Copy the binary somewhere on your `PATH`:
 
 ```bash

@@ -1,6 +1,9 @@
 # Built binary (default: go build -o wtman .)
 /wtman
 
+# GoReleaser output
+/dist/
+
 # Go build / test artifacts
 *.exe
 *.exe~
