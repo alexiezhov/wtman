@@ -17,7 +17,6 @@ var (
 	styleHeader       lipgloss.Style
 	styleSeparator    lipgloss.Style
 	styleSelectedRow  lipgloss.Style
-	styleNormalRow    lipgloss.Style
 	styleCheckOn      lipgloss.Style
 	styleCheckOff     lipgloss.Style
 	styleHint         lipgloss.Style
@@ -43,7 +42,6 @@ func ApplyColors(c core.ColorsConfig) {
 	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(colorMuted)
 	styleSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color(c.Separator))
 	styleSelectedRow = lipgloss.NewStyle().Background(colorSelBg).Foreground(lipgloss.Color(c.SelectedFg))
-	styleNormalRow = lipgloss.NewStyle()
 	styleCheckOn = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
 	styleCheckOff = lipgloss.NewStyle().Foreground(colorMuted)
 	styleHint = lipgloss.NewStyle().Foreground(colorMuted)

@@ -38,7 +38,7 @@ func Run(cfg core.Config, args []string) {
 func cmdLS(cfg core.Config, args []string) {
 	fs := flag.NewFlagSet("ls", flag.ExitOnError)
 	fs.Usage = func() { fmt.Fprintln(os.Stderr, "Usage: wtman ls"); os.Exit(0) }
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	branches, err := core.ListFeatureBranches(cfg.TargetDir)
 	if err != nil {
@@ -60,7 +60,7 @@ func cmdLS(cfg core.Config, args []string) {
 func cmdRepos(cfg core.Config, args []string) {
 	fs := flag.NewFlagSet("repos", flag.ExitOnError)
 	fs.Usage = func() { fmt.Fprintln(os.Stderr, "Usage: wtman repos"); os.Exit(0) }
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	repos, err := core.DiscoverRepos(cfg.SourceDir, cfg.ScanDepth)
 	if err != nil {
@@ -178,7 +178,7 @@ func cmdMV(cfg core.Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: wtman mv <old> <new>")
 		os.Exit(0)
 	}
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	if fs.NArg() < 2 {
 		fs.Usage()
@@ -196,7 +196,7 @@ func cmdPull(cfg core.Config, args []string) {
 		fmt.Fprintln(os.Stderr, "Usage: wtman pull")
 		os.Exit(0)
 	}
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	if err := core.PullSourceRepos(cfg.SourceDir, cfg.ScanDepth); err != nil {
 		die(err.Error())
@@ -211,7 +211,7 @@ func cmdPull(cfg core.Config, args []string) {
 func parseInterspersed(fs *flag.FlagSet, args []string) []string {
 	var positional []string
 	for {
-		fs.Parse(args)
+		_ = fs.Parse(args)
 		args = fs.Args()
 		if len(args) == 0 {
 			break
@@ -225,7 +225,7 @@ func parseInterspersed(fs *flag.FlagSet, args []string) []string {
 func jsonOut(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
-	enc.Encode(v)
+	_ = enc.Encode(v)
 }
 
 func die(msg string) {

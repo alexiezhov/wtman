@@ -183,7 +183,7 @@ func (m BranchListModel) View() string {
 
 			reposSelStr := selPlain(truncate(strings.Join(br.Repos, ", "), reposW))
 
-			selSep := styleSelectedRow.Copy().Foreground(lipgloss.Color("240")).Render(" \u2502 ")
+			selSep := styleSelectedRow.Foreground(lipgloss.Color("240")).Render(" \u2502 ")
 			// Pad the repos column to fill remaining width so the background band is full-width.
 			usedW := 2 + dateW + 3 + branchW + 3 + reposW
 			trailingW := max(0, m.width-usedW)
