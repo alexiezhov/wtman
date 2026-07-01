@@ -4,19 +4,8 @@ A multi-repo git worktree manager with an interactive TUI and CLI. Creates featu
 
 ## Prerequisites
 
-```bash
-brew install go git
-```
-
-- **Go 1.26 or newer** — [install via Homebrew](https://formulae.brew.sh/formula/go) or from [go.dev](https://go.dev/dl/).
 - **git** — required at runtime for all worktree operations
 - **macOS** — the approval watcher uses `osascript` and `script` (both ship with macOS)
-
-## Build
-
-```bash
-go build -o wtman .
-```
 
 ## Install
 
@@ -29,6 +18,8 @@ brew install --cask alexiezhov/apps/wtman
 This taps `alexiezhov/homebrew-apps` and installs the latest release. Upgrade with `brew upgrade --cask wtman`.
 
 ### From source
+
+Requires **Go 1.26 or newer** ([install via Homebrew](https://formulae.brew.sh/formula/go) or from [go.dev](https://go.dev/dl/)).
 
 Copy the binary somewhere on your `PATH`:
 
