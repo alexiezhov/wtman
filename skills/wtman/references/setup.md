@@ -11,9 +11,9 @@ The goal of setup: after you're done, `wtman repos` runs without error and lists
 Run these in parallel before talking to the user, so you know exactly what's missing:
 
 ```bash
-command -v wtman
-command -v go
-command -v git
+wtman version 2>/dev/null   # prints version if installed; silent if not
+brew --version 2>/dev/null   # Homebrew is the recommended install path
+git --version
 sw_vers -productName 2>/dev/null   # confirms macOS (wtman targets macOS)
 cat ~/.config/wtman/config.json 2>/dev/null
 echo "$PATH" | tr ':' '\n'
@@ -21,11 +21,10 @@ echo "$PATH" | tr ':' '\n'
 
 Decide:
 
-- If `wtman` resolves → skip to **Step 2** (config).
-- If `wtman` is missing → start at **Step 1** (install).
-- Capture which directories on `PATH` are user-writable (`~/.local/bin`, `~/bin`, `/usr/local/bin`) — you'll need one for the install target.
+- If `wtman version` printed a version → skip to **Step 2** (config).
+- If it printed nothing → wtman isn't installed; start at **Step 1** (install).
 
-If `sw_vers` shows something other than `macOS`, warn the user: wtman's `post_command` defaults and the watcher rely on macOS-only tools (`open`, `osascript`, `script`). Core worktree operations still work on Linux, but the user should know.
+If `sw_vers` shows something other than `macOS`, warn the user: wtman ships as a macOS Homebrew cask, and its `post_command` defaults and the watcher rely on macOS-only tools (`open`, `osascript`, `script`).
 
 ---
 
@@ -33,65 +32,26 @@ If `sw_vers` shows something other than `macOS`, warn the user: wtman's `post_co
 
 ### Prerequisites
 
-- **Go 1.26 or newer** — `go version` to check. If the user has an older version or no Go at all, point them at `brew install go` or [go.dev/dl](https://go.dev/dl/); don't install Go for them.
-- **git** — `git --version` to check. Should always be present on a developer machine; if not, `brew install git`.
+- **git** — `git --version` to check. Required at runtime for all worktree operations. Should always be present on a developer machine; if not, `brew install git`.
+- **Homebrew** — `brew --version`. The install path for wtman. If it's missing, point the user at [brew.sh](https://brew.sh) to install it; don't install Homebrew for them.
 
-If either prerequisite is missing, stop and tell the user — don't try to work around it.
+If a prerequisite is missing, stop and tell the user — don't try to work around it.
 
-### Pick a build method
-
-There are three ways to get the binary. Ask the user (or pick the obvious one if context makes it clear) and proceed:
-
-**A. Build from a local checkout (preferred when the user is *in* the wtman repo).**
-
-Detect this: the current working directory contains a `go.mod` whose first line is `module github.com/alexiezhov/wtman`. Confirm with:
+### Install via Homebrew
 
 ```bash
-head -1 go.mod 2>/dev/null
+brew install --cask alexiezhov/apps/wtman
 ```
 
-Then build and install:
-
-```bash
-go build -o wtman .
-mv wtman <install-dir>/wtman
-```
-
-**B. Install directly from the module proxy (no local checkout needed).**
-
-```bash
-go install github.com/alexiezhov/wtman@latest
-```
-
-This drops the binary in `$(go env GOBIN)` or `$(go env GOPATH)/bin`. Verify that directory is on `PATH`; if not, tell the user which line to add to their shell rc (`export PATH="$(go env GOPATH)/bin:$PATH"`).
-
-**C. Build from a clone elsewhere.**
-
-Ask the user where they cloned it (or offer to `git clone https://github.com/alexiezhov/wtman <path>` first), then run method A inside that directory.
-
-### Pick the install directory (for method A)
-
-Prefer in this order, picking the first that's already on `PATH` and writable:
-
-1. `~/.local/bin`
-2. `~/bin`
-3. `/usr/local/bin` (needs `sudo mv` on most setups — warn the user before invoking sudo)
-
-If none are on `PATH`, create `~/.local/bin`, install there, and tell the user the exact line to add to `~/.zshrc` / `~/.bashrc`:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Don't edit shell rc files for the user — tell them what to add and let them paste it.
+This taps `alexiezhov/homebrew-apps` and installs the latest release into a Homebrew-managed location already on `PATH` — no manual `PATH` step needed. Upgrade later with `brew upgrade --cask wtman`.
 
 ### Verify
 
 ```bash
-command -v wtman && wtman 2>&1 | head -5
+wtman version
 ```
 
-If the binary runs but prints "config not found" or similar, that's expected — proceed to step 2.
+If it prints the version, commit, and build date, the install is good — proceed to step 2. (`wtman version` runs before any config load, so it works even with no config yet.)
 
 ### Optional — Cursor approval watcher
 

@@ -14,7 +14,7 @@ This skill operates in one of two modes. Decide which **before** doing anything 
 Run this single probe first:
 
 ```bash
-command -v wtman && cat ~/.config/wtman/config.json 2>/dev/null
+wtman version 2>/dev/null; cat ~/.config/wtman/config.json 2>/dev/null
 ```
 
 - **Setup mode** if any of these are true:
@@ -43,6 +43,7 @@ Translate the user's request into the right `wtman` invocation and report the re
 | Rename a feature branch directory | `wtman mv <old> <new>` |
 | Pull every source repo | `wtman pull` |
 | Delete a feature branch (worktrees + dir) | `wtman rm <branch>` |
+| Check the installed version | `wtman version` |
 
 Flag notes:
 - `-n` on `wtman new` skips the configured `post_command` (useful when the user just wants the worktrees and will open them themselves).
