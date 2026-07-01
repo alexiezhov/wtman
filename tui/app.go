@@ -31,7 +31,6 @@ type AppModel struct {
 	cfg        core.Config
 	cfgPath    string
 	mode       mode
-	prevMode   mode
 	width      int
 	height     int
 	branchList BranchListModel
