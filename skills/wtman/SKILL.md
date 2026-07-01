@@ -43,6 +43,7 @@ Translate the user's request into the right `wtman` invocation and report the re
 | Rename a feature branch directory | `wtman mv <old> <new>` |
 | Pull every source repo | `wtman pull` |
 | Delete a feature branch (worktrees + dir) | `wtman rm <branch>` |
+| Check the installed version | `wtman version` |
 
 Flag notes:
 - `-n` on `wtman new` skips the configured `post_command` (useful when the user just wants the worktrees and will open them themselves).

@@ -73,6 +73,7 @@ wtman rm <branch> [-f]                      # Delete branch (-f force even if di
 wtman update <branch> <repos> [-f]          # Set repos for branch (-f force dirty removal)
 wtman mv <old> <new>                        # Rename branch
 wtman pull                                  # Pull all repos under source_dir
+wtman version                               # Print version, commit, and build date
 ```
 
 By default, new branches are created from each repo's `main`/`master`. Pass `--from <ref>` to base them on another branch, tag, or commit instead (resolved per repo as a local ref, then `origin/<ref>`):
